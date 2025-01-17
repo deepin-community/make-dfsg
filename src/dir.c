@@ -1,5 +1,5 @@
 /* Directory hashing for GNU Make.
-Copyright (C) 1988-2020 Free Software Foundation, Inc.
+Copyright (C) 1988-2023 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -12,12 +12,13 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include "makeint.h"
 #include "hash.h"
 #include "filedef.h"
 #include "dep.h"
+#include "debug.h"
 
 #ifdef  HAVE_DIRENT_H
 # include <dirent.h>
@@ -75,12 +76,12 @@ dosify (const char *filename)
   char *df;
   int i;
 
-  if (filename == 0 || _USE_LFN)
+  if (filename == NULL || _USE_LFN)
     return filename;
 
   /* FIXME: what about filenames which violate
      8+3 constraints, like "config.h.in", or ".emacs"?  */
-  if (strpbrk (filename, "\"*+,;<=>?[\\]|") != 0)
+  if (strpbrk (filename, "\"*+,;<=>?[\\]|") != NULL)
     return filename;
 
   df = dos_filename;
@@ -104,7 +105,7 @@ dosify (const char *filename)
     ++filename;
   if (*filename == '.')
     return filename;
-  *df = 0;
+  *df = '\0';
   return dos_filename;
 }
 #endif /* __MSDOS__ */
@@ -124,8 +125,8 @@ downcase (const char *filename)
   static PATH_VAR (new_filename);
   char *df;
 
-  if (filename == 0)
-    return 0;
+  if (filename == NULL)
+    return NULL;
 
   df = new_filename;
   while (*filename != '\0')
@@ -134,7 +135,7 @@ downcase (const char *filename)
       ++filename;
     }
 
-  *df = 0;
+  *df = '\0';
 
   return new_filename;
 }
@@ -175,7 +176,7 @@ vms_hash (const char *name)
 
   while (*name)
     {
-      unsigned char uc = *name;
+      unsigned char uc = (unsigned char) *name;
       int g;
 #ifdef HAVE_CASE_INSENSITIVE_FS
       h = (h << 4) + (isupper (uc) ? tolower (uc) : uc);
@@ -202,14 +203,14 @@ vmsstat_dir (const char *name, struct stat *st)
   DIR *dir;
 
   dir = opendir (name);
-  if (dir == 0)
+  if (dir == NULL)
     return -1;
   closedir (dir);
   s = strchr (name, ':');       /* find device */
   if (s)
     {
       /* to keep the compiler happy we said "const char *name", now we cheat */
-      *s++ = 0;
+      *s++ = '\0';
       st->st_dev = (char *)vms_hash (name);
       h = vms_hash (s);
       *(s-1) = ':';
@@ -232,6 +233,12 @@ vmsstat_dir (const char *name, struct stat *st)
 #endif /* _USE_STD_STAT */
 #endif /* VMS */
 
+/* Never have more than this many directories open at once.  */
+
+#define MAX_OPEN_DIRECTORIES 10
+
+static unsigned int open_directories = 0;
+
 /* Hash table of directories.  */
 
 #ifndef DIRECTORY_BUCKETS
@@ -262,8 +269,25 @@ struct directory_contents
 # endif
 #endif /* WINDOWS32 */
     struct hash_table dirfiles; /* Files in this directory.  */
+    unsigned long counter;      /* command_count value when last read. */
     DIR *dirstream;             /* Stream reading this directory.  */
   };
+
+static struct directory_contents *
+clear_directory_contents (struct directory_contents *dc)
+{
+  dc->counter = 0;
+  if (dc->dirstream)
+    {
+      --open_directories;
+      closedir (dc->dirstream);
+      dc->dirstream = NULL;
+    }
+  if (dc->dirfiles.ht_vec != NULL)
+    hash_free (&dc->dirfiles, 1);
+
+  return NULL;
+}
 
 static unsigned long
 directory_contents_hash_1 (const void *key_0)
@@ -363,7 +387,9 @@ static struct hash_table directory_contents;
 
 struct directory
   {
-    const char *name;                   /* Name of the directory.  */
+    const char *name;           /* Name of the directory.  */
+    unsigned long counter;      /* command_count value when last read.
+                                   Used for non-existent directories.  */
 
     /* The directory's contents.  This data may be shared by several
        entries in the hash table, which refer to the same directory
@@ -392,12 +418,6 @@ directory_hash_cmp (const void *x, const void *y)
 
 /* Table of directories hashed by name.  */
 static struct hash_table directories;
-
-/* Never have more than this many directories open at once.  */
-
-#define MAX_OPEN_DIRECTORIES 10
-
-static unsigned int open_directories = 0;
 
 
 /* Hash table of files in each directory.  */
@@ -437,7 +457,7 @@ dirfile_hash_cmp (const void *xv, const void *yv)
 #define DIRFILE_BUCKETS 107
 #endif
 
-static int dir_contents_file_exists_p (struct directory_contents *dir,
+static int dir_contents_file_exists_p (struct directory *dir,
                                        const char *filename);
 static struct directory *find_directory (const char *name);
 
@@ -449,150 +469,161 @@ find_directory (const char *name)
   struct directory *dir;
   struct directory **dir_slot;
   struct directory dir_key;
+  struct directory_contents *dc;
+  struct directory_contents **dc_slot;
+  struct directory_contents dc_key;
+
+  struct stat st;
+  int r;
+#ifdef WINDOWS32
+  char *w32_path;
+#endif
 
   dir_key.name = name;
   dir_slot = (struct directory **) hash_find_slot (&directories, &dir_key);
   dir = *dir_slot;
 
-  if (HASH_VACANT (dir))
+  if (!HASH_VACANT (dir))
+    {
+      unsigned long ctr = dir->contents ? dir->contents->counter : dir->counter;
+
+      /* No commands have run since we parsed this directory so it's good.  */
+      if (ctr == command_count)
+        return dir;
+
+      DB (DB_VERBOSE, ("Directory %s cache invalidated (count %lu != command %lu)\n",
+                       name, ctr, command_count));
+
+      if (dir->contents)
+        clear_directory_contents (dir->contents);
+    }
+  else
     {
       /* The directory was not found.  Create a new entry for it.  */
-      const char *p = name + strlen (name);
-      struct stat st;
-      int r;
+      size_t len = strlen (name);
 
       dir = xmalloc (sizeof (struct directory));
 #if defined(HAVE_CASE_INSENSITIVE_FS) && defined(VMS)
       /* Todo: Why is this only needed on VMS? */
       {
         char *lname = downcase_inplace (xstrdup (name));
-        dir->name = strcache_add_len (lname, p - name);
+        dir->name = strcache_add_len (lname, len);
         free (lname);
       }
 #else
-      dir->name = strcache_add_len (name, p - name);
+      dir->name = strcache_add_len (name, len);
 #endif
       hash_insert_at (&directories, dir, dir_slot);
-      /* The directory is not in the name hash table.
-         Find its device and inode numbers, and look it up by them.  */
+    }
 
+  dir->contents = NULL;
+  dir->counter = command_count;
+
+  /* See if the directory exists.  */
 #if defined(WINDOWS32)
-      {
-        char tem[MAXPATHLEN], *tstart, *tend;
+  {
+    char tem[MAX_PATH+1], *tstart, *tend;
+    size_t len = strlen (name);
 
-        /* Remove any trailing slashes.  Windows32 stat fails even on
-           valid directories if they end in a slash. */
-        memcpy (tem, name, p - name + 1);
-        tstart = tem;
-        if (tstart[1] == ':')
-          tstart += 2;
-        for (tend = tem + (p - name - 1);
-             tend > tstart && (*tend == '/' || *tend == '\\');
-             tend--)
-          *tend = '\0';
+    /* Remove any trailing slashes.  Windows32 stat fails even on
+       valid directories if they end in a slash. */
+    memcpy (tem, name, len + 1);
+    tstart = tem;
+    if (tstart[1] == ':')
+      tstart += 2;
+    for (tend = tem + (len - 1); tend > tstart && ISDIRSEP (*tend); tend--)
+      *tend = '\0';
 
-        r = stat (tem, &st);
-      }
+    r = stat (tem, &st);
+  }
 #else
-      EINTRLOOP (r, stat (name, &st));
+  EINTRLOOP (r, stat (name, &st));
 #endif
 
-      if (r < 0)
-        {
-        /* Couldn't stat the directory.  Mark this by
-           setting the 'contents' member to a nil pointer.  */
-          dir->contents = 0;
-        }
+  if (r < 0)
+    /* Couldn't stat the directory; nothing else to do.  */
+    return dir;
+
+  /* Search the contents hash table; device and inode are the key.  */
+
+  memset (&dc_key, '\0', sizeof (dc_key));
+  dc_key.dev = st.st_dev;
+#ifdef WINDOWS32
+  dc_key.path_key = w32_path = w32ify (name, 1);
+  dc_key.ctime = st.st_ctime;
+#else
+# ifdef VMS_INO_T
+  dc_key.ino[0] = st.st_ino[0];
+  dc_key.ino[1] = st.st_ino[1];
+  dc_key.ino[2] = st.st_ino[2];
+# else
+  dc_key.ino = st.st_ino;
+# endif
+#endif
+  dc_slot = (struct directory_contents **) hash_find_slot (&directory_contents, &dc_key);
+  dc = *dc_slot;
+
+  if (HASH_VACANT (dc))
+    {
+      /* Nope; this really is a directory we haven't seen before.  */
+#ifdef WINDOWS32
+      char  fs_label[BUFSIZ];
+      char  fs_type[BUFSIZ];
+      unsigned long  fs_serno;
+      unsigned long  fs_flags;
+      unsigned long  fs_len;
+#endif
+      /* Enter it in the contents hash table.  */
+      dc = xcalloc (sizeof (struct directory_contents));
+      *dc = dc_key;
+
+#ifdef WINDOWS32
+      dc->path_key = xstrdup (w32_path);
+      dc->mtime = st.st_mtime;
+
+      /* NTFS is the only WINDOWS32 filesystem that bumps mtime on a
+         directory when files are added/deleted from a directory.  */
+      w32_path[3] = '\0';
+      if (GetVolumeInformation (w32_path, fs_label, sizeof (fs_label),
+                                &fs_serno, &fs_len, &fs_flags, fs_type,
+                                sizeof (fs_type)) == FALSE)
+        dc->fs_flags = FS_UNKNOWN;
+      else if (!strcmp (fs_type, "FAT"))
+        dc->fs_flags = FS_FAT;
+      else if (!strcmp (fs_type, "NTFS"))
+        dc->fs_flags = FS_NTFS;
+      else
+        dc->fs_flags = FS_UNKNOWN;
+#endif /* WINDOWS32 */
+
+      hash_insert_at (&directory_contents, dc, dc_slot);
+    }
+
+  /* Point the name-hashed entry for DIR at its contents data.  */
+  dir->contents = dc;
+
+  /* If the contents have changed, we need to reseed.  */
+  if (dc->counter != command_count)
+    {
+      if (dc->counter)
+        clear_directory_contents (dc);
+
+      dc->counter = command_count;
+
+      ENULLLOOP (dc->dirstream, opendir (name));
+      if (dc->dirstream == NULL)
+        /* Couldn't open the directory: mark this by setting files to NULL.  */
+        dc->dirfiles.ht_vec = NULL;
       else
         {
-          /* Search the contents hash table; device and inode are the key.  */
-
-#ifdef WINDOWS32
-          char *w32_path;
-#endif
-          struct directory_contents *dc;
-          struct directory_contents **dc_slot;
-          struct directory_contents dc_key;
-
-          dc_key.dev = st.st_dev;
-#ifdef WINDOWS32
-          dc_key.path_key = w32_path = w32ify (name, 1);
-          dc_key.ctime = st.st_ctime;
-#else
-# ifdef VMS_INO_T
-          dc_key.ino[0] = st.st_ino[0];
-          dc_key.ino[1] = st.st_ino[1];
-          dc_key.ino[2] = st.st_ino[2];
-# else
-          dc_key.ino = st.st_ino;
-# endif
-#endif
-          dc_slot = (struct directory_contents **) hash_find_slot (&directory_contents, &dc_key);
-          dc = *dc_slot;
-
-          if (HASH_VACANT (dc))
-            {
-              /* Nope; this really is a directory we haven't seen before.  */
-#ifdef WINDOWS32
-              char  fs_label[BUFSIZ];
-              char  fs_type[BUFSIZ];
-              unsigned long  fs_serno;
-              unsigned long  fs_flags;
-              unsigned long  fs_len;
-#endif
-              dc = (struct directory_contents *)
-                xmalloc (sizeof (struct directory_contents));
-
-              /* Enter it in the contents hash table.  */
-              dc->dev = st.st_dev;
-#ifdef WINDOWS32
-              dc->path_key = xstrdup (w32_path);
-              dc->ctime = st.st_ctime;
-              dc->mtime = st.st_mtime;
-
-              /* NTFS is the only WINDOWS32 filesystem that bumps mtime on a
-                 directory when files are added/deleted from a directory.  */
-              w32_path[3] = '\0';
-              if (GetVolumeInformation (w32_path, fs_label, sizeof (fs_label),
-                                        &fs_serno, &fs_len, &fs_flags, fs_type,
-                                        sizeof (fs_type)) == FALSE)
-                dc->fs_flags = FS_UNKNOWN;
-              else if (!strcmp (fs_type, "FAT"))
-                dc->fs_flags = FS_FAT;
-              else if (!strcmp (fs_type, "NTFS"))
-                dc->fs_flags = FS_NTFS;
-              else
-                dc->fs_flags = FS_UNKNOWN;
-#else
-# ifdef VMS_INO_T
-              dc->ino[0] = st.st_ino[0];
-              dc->ino[1] = st.st_ino[1];
-              dc->ino[2] = st.st_ino[2];
-# else
-              dc->ino = st.st_ino;
-# endif
-#endif /* WINDOWS32 */
-              hash_insert_at (&directory_contents, dc, dc_slot);
-              ENULLLOOP (dc->dirstream, opendir (name));
-              if (dc->dirstream == 0)
-                /* Couldn't open the directory.  Mark this by setting the
-                   'files' member to a nil pointer.  */
-                dc->dirfiles.ht_vec = 0;
-              else
-                {
-                  hash_init (&dc->dirfiles, DIRFILE_BUCKETS,
-                             dirfile_hash_1, dirfile_hash_2, dirfile_hash_cmp);
-                  /* Keep track of how many directories are open.  */
-                  ++open_directories;
-                  if (open_directories == MAX_OPEN_DIRECTORIES)
-                    /* We have too many directories open already.
-                       Read the entire directory and then close it.  */
-                    dir_contents_file_exists_p (dc, 0);
-                }
-            }
-
-          /* Point the name-hashed entry for DIR at its contents data.  */
-          dir->contents = dc;
+          hash_init (&dc->dirfiles, DIRFILE_BUCKETS,
+                     dirfile_hash_1, dirfile_hash_2, dirfile_hash_cmp);
+          /* Keep track of how many directories are open.  */
+          ++open_directories;
+          if (open_directories == MAX_OPEN_DIRECTORIES)
+            /* We have too many directories open already.
+               Read the entire directory and then close it.  */
+            dir_contents_file_exists_p (dir, NULL);
         }
     }
 
@@ -603,17 +634,18 @@ find_directory (const char *name)
    FILENAME must contain no slashes.  */
 
 static int
-dir_contents_file_exists_p (struct directory_contents *dir,
+dir_contents_file_exists_p (struct directory *dir,
                             const char *filename)
 {
   struct dirfile *df;
   struct dirent *d;
+  struct directory_contents *dc = dir->contents;
 #ifdef WINDOWS32
   struct stat st;
   int rehash = 0;
 #endif
 
-  if (dir == 0 || dir->dirfiles.ht_vec == 0)
+  if (dc == NULL || dc->dirfiles.ht_vec == NULL)
     /* The directory could not be stat'd or opened.  */
     return 0;
 
@@ -626,10 +658,16 @@ dir_contents_file_exists_p (struct directory_contents *dir,
 #endif
 
 #ifdef __EMX__
-  if (filename != 0)
-    _fnlwr (filename); /* lower case for FAT drives */
+  if (filename != NULL)
+    {
+      size_t len = strlen (filename);
+      char *fname = alloca (len + 1);
+      memcpy (fname, filename, len + 1);
+      _fnlwr (fname); /* lower case for FAT drives */
+      filename = fname;
+    }
 #endif
-  if (filename != 0)
+  if (filename != NULL)
     {
       struct dirfile dirfile_key;
 
@@ -640,7 +678,7 @@ dir_contents_file_exists_p (struct directory_contents *dir,
         }
       dirfile_key.name = filename;
       dirfile_key.length = strlen (filename);
-      df = hash_find_item (&dir->dirfiles, &dirfile_key);
+      df = hash_find_item (&dc->dirfiles, &dirfile_key);
       if (df)
         return !df->impossible;
     }
@@ -648,7 +686,7 @@ dir_contents_file_exists_p (struct directory_contents *dir,
   /* The file was not found in the hashed list.
      Try to read the directory further.  */
 
-  if (dir->dirstream == 0)
+  if (dc->dirstream == NULL)
     {
 #ifdef WINDOWS32
       /*
@@ -656,17 +694,17 @@ dir_contents_file_exists_p (struct directory_contents *dir,
        * filesystems force a rehash always as mtime does not change
        * on directories (ugh!).
        */
-      if (dir->path_key)
+      if (dc->path_key)
         {
-          if ((dir->fs_flags & FS_FAT) != 0)
+          if ((dc->fs_flags & FS_FAT) != 0)
             {
-              dir->mtime = time ((time_t *) 0);
+              dc->mtime = time (NULL);
               rehash = 1;
             }
-          else if (stat (dir->path_key, &st) == 0 && st.st_mtime > dir->mtime)
+          else if (stat (dc->path_key, &st) == 0 && st.st_mtime > dc->mtime)
             {
               /* reset date stamp to show most recent re-process.  */
-              dir->mtime = st.st_mtime;
+              dc->mtime = st.st_mtime;
               rehash = 1;
             }
 
@@ -675,8 +713,8 @@ dir_contents_file_exists_p (struct directory_contents *dir,
             return 0;
 
           /* make sure directory can still be opened; if not return.  */
-          dir->dirstream = opendir (dir->path_key);
-          if (!dir->dirstream)
+          dc->dirstream = opendir (dc->path_key);
+          if (!dc->dirstream)
             return 0;
         }
       else
@@ -692,11 +730,11 @@ dir_contents_file_exists_p (struct directory_contents *dir,
       struct dirfile dirfile_key;
       struct dirfile **dirfile_slot;
 
-      ENULLLOOP (d, readdir (dir->dirstream));
-      if (d == 0)
+      ENULLLOOP (d, readdir (dc->dirstream));
+      if (d == NULL)
         {
           if (errno)
-            pfatal_with_name ("INTERNAL: readdir");
+            OSS (fatal, NILF, "readdir %s: %s", dir->name, strerror (errno));
           break;
         }
 
@@ -716,7 +754,7 @@ dir_contents_file_exists_p (struct directory_contents *dir,
       len = NAMLEN (d);
       dirfile_key.name = d->d_name;
       dirfile_key.length = len;
-      dirfile_slot = (struct dirfile **) hash_find_slot (&dir->dirfiles, &dirfile_key);
+      dirfile_slot = (struct dirfile **) hash_find_slot (&dc->dirfiles, &dirfile_key);
 #ifdef WINDOWS32
       /*
        * If re-reading a directory, don't cache files that have
@@ -737,21 +775,22 @@ dir_contents_file_exists_p (struct directory_contents *dir,
 #endif
           df->length = len;
           df->impossible = 0;
-          hash_insert_at (&dir->dirfiles, df, dirfile_slot);
+          hash_insert_at (&dc->dirfiles, df, dirfile_slot);
         }
       /* Check if the name matches the one we're searching for.  */
-      if (filename != 0 && patheq (d->d_name, filename))
+      if (filename != NULL && patheq (d->d_name, filename))
         return 1;
     }
 
   /* If the directory has been completely read in,
      close the stream and reset the pointer to nil.  */
-  if (d == 0)
+  if (d == NULL)
     {
       --open_directories;
-      closedir (dir->dirstream);
-      dir->dirstream = 0;
+      closedir (dc->dirstream);
+      dc->dirstream = NULL;
     }
+
   return 0;
 }
 
@@ -763,15 +802,10 @@ int
 dir_file_exists_p (const char *dirname, const char *filename)
 {
 #ifdef VMS
-  if ((filename != NULL) && (dirname != NULL))
-    {
-      int want_vmsify;
-      want_vmsify = (strpbrk (dirname, ":<[") != NULL);
-      if (want_vmsify)
-        filename = vmsify (filename, 0);
-    }
+  if (filename && dirname && strpbrk (dirname, ":<[") != NULL)
+    filename = vmsify (filename, 0);
 #endif
-  return dir_contents_file_exists_p (find_directory (dirname)->contents,
+  return dir_contents_file_exists_p (find_directory (dirname),
                                      filename);
 }
 
@@ -791,17 +825,17 @@ file_exists_p (const char *name)
 
   dirend = strrchr (name, '/');
 #ifdef VMS
-  if (dirend == 0)
+  if (dirend == NULL)
     {
       dirend = strrchr (name, ']');
       dirend == NULL ? dirend : dirend++;
     }
-  if (dirend == 0)
+  if (dirend == NULL)
     {
       dirend = strrchr (name, '>');
       dirend == NULL ? dirend : dirend++;
     }
-  if (dirend == 0)
+  if (dirend == NULL)
     {
       dirend = strrchr (name, ':');
       dirend == NULL ? dirend : dirend++;
@@ -818,7 +852,7 @@ file_exists_p (const char *name)
       dirend = name + 1;
   }
 #endif /* HAVE_DOS_PATHS */
-  if (dirend == 0)
+  if (dirend == NULL)
 #ifndef _AMIGA
     return dir_file_exists_p (".", name);
 #else /* !AMIGA */
@@ -834,7 +868,7 @@ file_exists_p (const char *name)
 #ifdef HAVE_DOS_PATHS
   /* d:/ and d: are *very* different...  */
       if (dirend < name + 3 && name[1] == ':' &&
-          (*dirend == '/' || *dirend == '\\' || *dirend == ':'))
+          (ISDIRSEP (*dirend) || *dirend == ':'))
         dirend++;
 #endif
       p = alloca (dirend - name + 1);
@@ -892,7 +926,7 @@ file_impossible (const char *filename)
       dirend = p + 1;
   }
 #endif /* HAVE_DOS_PATHS */
-  if (dirend == 0)
+  if (dirend == NULL)
 #ifdef _AMIGA
     dir = find_directory ("");
 #else /* !AMIGA */
@@ -910,7 +944,7 @@ file_impossible (const char *filename)
 #ifdef HAVE_DOS_PATHS
           /* d:/ and d: are *very* different...  */
           if (dirend < p + 3 && p[1] == ':' &&
-              (*dirend == '/' || *dirend == '\\' || *dirend == ':'))
+              (ISDIRSEP (*dirend) || *dirend == ':'))
             dirend++;
 #endif
           cp = alloca (dirend - p + 1);
@@ -929,16 +963,14 @@ file_impossible (const char *filename)
 #endif
     }
 
-  if (dir->contents == 0)
+  if (dir->contents == NULL)
     /* The directory could not be stat'd.  We allocate a contents
        structure for it, but leave it out of the contents hash table.  */
     dir->contents = xcalloc (sizeof (struct directory_contents));
 
-  if (dir->contents->dirfiles.ht_vec == 0)
-    {
-      hash_init (&dir->contents->dirfiles, DIRFILE_BUCKETS,
-                 dirfile_hash_1, dirfile_hash_2, dirfile_hash_cmp);
-    }
+  if (dir->contents->dirfiles.ht_vec == NULL)
+    hash_init (&dir->contents->dirfiles, DIRFILE_BUCKETS,
+               dirfile_hash_1, dirfile_hash_2, dirfile_hash_cmp);
 
   /* Make a new entry and put it in the table.  */
 
@@ -990,7 +1022,7 @@ file_impossible_p (const char *filename)
       dirend = filename + 1;
   }
 #endif /* HAVE_DOS_PATHS */
-  if (dirend == 0)
+  if (dirend == NULL)
 #ifdef _AMIGA
     dir = find_directory ("")->contents;
 #else /* !AMIGA */
@@ -1008,7 +1040,7 @@ file_impossible_p (const char *filename)
 #ifdef HAVE_DOS_PATHS
           /* d:/ and d: are *very* different...  */
           if (dirend < filename + 3 && filename[1] == ':' &&
-              (*dirend == '/' || *dirend == '\\' || *dirend == ':'))
+              (ISDIRSEP (*dirend) || *dirend == ':'))
             dirend++;
 #endif
           cp = alloca (dirend - filename + 1);
@@ -1027,7 +1059,7 @@ file_impossible_p (const char *filename)
 #endif
     }
 
-  if (dir == 0 || dir->dirfiles.ht_vec == 0)
+  if (dir == NULL || dir->dirfiles.ht_vec == NULL)
     /* There are no files entered for this directory.  */
     return 0;
 
@@ -1069,6 +1101,9 @@ print_dir_data_base (void)
   unsigned int impossible;
   struct directory **dir_slot;
   struct directory **dir_end;
+#ifdef WINDOWS32
+  char buf[INTSTR_LENGTH + 1];
+#endif
 
   puts (_("\n# Directories\n"));
 
@@ -1081,27 +1116,22 @@ print_dir_data_base (void)
       struct directory *dir = *dir_slot;
       if (! HASH_VACANT (dir))
         {
-          if (dir->contents == 0)
+          if (dir->contents == NULL)
             printf (_("# %s: could not be stat'd.\n"), dir->name);
-          else if (dir->contents->dirfiles.ht_vec == 0)
-            {
+          else if (dir->contents->dirfiles.ht_vec == NULL)
 #ifdef WINDOWS32
-              printf (_("# %s (key %s, mtime %I64u): could not be opened.\n"),
-                      dir->name, dir->contents->path_key,
-                      (unsigned long long)dir->contents->mtime);
-#else  /* WINDOWS32 */
-#ifdef VMS_INO_T
-              printf (_("# %s (device %d, inode [%d,%d,%d]): could not be opened.\n"),
-                      dir->name, dir->contents->dev,
-                      dir->contents->ino[0], dir->contents->ino[1],
-                      dir->contents->ino[2]);
+            printf (_("# %s (key %s, mtime %s): could not be opened.\n"),
+                    dir->name, dir->contents->path_key,
+                    make_ulltoa ((unsigned long long)dir->contents->mtime, buf));
+#elif defined(VMS_INO_T)
+            printf (_("# %s (device %d, inode [%d,%d,%d]): could not be opened.\n"),
+                    dir->name, dir->contents->dev,
+                    dir->contents->ino[0], dir->contents->ino[1],
+                    dir->contents->ino[2]);
 #else
-              printf (_("# %s (device %ld, inode %ld): could not be opened.\n"),
-                      dir->name, (long int) dir->contents->dev,
-                      (long int) dir->contents->ino);
+            printf (_("# %s (device %ld, inode %ld): could not be opened.\n"),
+                    dir->name, (long) dir->contents->dev, (long) dir->contents->ino);
 #endif
-#endif /* WINDOWS32 */
-            }
           else
             {
               unsigned int f = 0;
@@ -1123,21 +1153,18 @@ print_dir_data_base (void)
                     }
                 }
 #ifdef WINDOWS32
-              printf (_("# %s (key %s, mtime %I64u): "),
+              printf (_("# %s (key %s, mtime %s): "),
                       dir->name, dir->contents->path_key,
-                      (unsigned long long)dir->contents->mtime);
-#else  /* WINDOWS32 */
-#ifdef VMS_INO_T
+                      make_ulltoa ((unsigned long long)dir->contents->mtime, buf));
+#elif defined(VMS_INO_T)
               printf (_("# %s (device %d, inode [%d,%d,%d]): "),
                       dir->name, dir->contents->dev,
                       dir->contents->ino[0], dir->contents->ino[1],
                       dir->contents->ino[2]);
 #else
-              printf (_("# %s (device %ld, inode %ld): "),
-                      dir->name,
+              printf (_("# %s (device %ld, inode %ld): "), dir->name,
                       (long)dir->contents->dev, (long)dir->contents->ino);
 #endif
-#endif /* WINDOWS32 */
               if (f == 0)
                 fputs (_("No"), stdout);
               else
@@ -1148,7 +1175,7 @@ print_dir_data_base (void)
               else
                 printf ("%u", im);
               fputs (_(" impossibilities"), stdout);
-              if (dir->contents->dirstream == 0)
+              if (dir->contents->dirstream == NULL)
                 puts (".");
               else
                 puts (_(" so far."));
@@ -1182,34 +1209,34 @@ struct dirstream
   };
 
 /* Forward declarations.  */
-static __ptr_t open_dirstream (const char *);
-static struct dirent *read_dirstream (__ptr_t);
+static void *open_dirstream (const char *);
+static struct dirent *read_dirstream (void *);
 
-static __ptr_t
+static void *
 open_dirstream (const char *directory)
 {
   struct dirstream *new;
   struct directory *dir = find_directory (directory);
 
-  if (dir->contents == 0 || dir->contents->dirfiles.ht_vec == 0)
+  if (dir->contents == NULL || dir->contents->dirfiles.ht_vec == NULL)
     /* DIR->contents is nil if the directory could not be stat'd.
        DIR->contents->dirfiles is nil if it could not be opened.  */
-    return 0;
+    return NULL;
 
   /* Read all the contents of the directory now.  There is no benefit
      in being lazy, since glob will want to see every file anyway.  */
 
-  dir_contents_file_exists_p (dir->contents, 0);
+  dir_contents_file_exists_p (dir, NULL);
 
   new = xmalloc (sizeof (struct dirstream));
   new->contents = dir->contents;
   new->dirfile_slot = (struct dirfile **) new->contents->dirfiles.ht_vec;
 
-  return (__ptr_t) new;
+  return new;
 }
 
 static struct dirent *
-read_dirstream (__ptr_t stream)
+read_dirstream (void *stream)
 {
   static char *buf;
   static size_t bufsz;
@@ -1253,7 +1280,7 @@ read_dirstream (__ptr_t stream)
         }
     }
 
-  return 0;
+  return NULL;
 }
 
 /* On 64 bit ReliantUNIX (5.44 and above) in LFS mode, stat() is actually a
@@ -1286,13 +1313,12 @@ local_stat (const char *path, struct stat *buf)
   /* Make sure the parent of "." exists and is a directory, not a
      file.  This is because 'stat' on Windows normalizes the argument
      foo/. => foo without checking first that foo is a directory.  */
-  if (plen > 1 && path[plen - 1] == '.'
-      && (path[plen - 2] == '/' || path[plen - 2] == '\\'))
+  if (plen > 2 && path[plen - 1] == '.' && ISDIRSEP (path[plen - 2]))
     {
-      char parent[MAXPATHLEN];
+      char parent[MAX_PATH+1];
 
-      strncpy (parent, path, plen - 2);
-      parent[plen - 2] = '\0';
+      strncpy (parent, path, MAX_PATH);
+      parent[MIN(plen - 2, MAX_PATH)] = '\0';
       if (stat (parent, buf) < 0 || !_S_ISDIR (buf->st_mode))
         return -1;
     }

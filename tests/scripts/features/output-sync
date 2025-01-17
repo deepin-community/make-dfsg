@@ -38,10 +38,10 @@ sub output_sync_clean {
 # reliable.  If things are too fast, then sometimes a different job will steal
 # the output sync lock and the output is mis-ordered from what we expect.
 sub output_sync_wait {
-    return subst_make_string("#HELPER# -q wait ../mksync.$_[0] sleep 1");
+    return subst_make_string("#HELPER# \$Q wait ../mksync.$_[0] sleep 1");
 }
 sub output_sync_set {
-    return subst_make_string("#HELPER# -q file ../mksync.$_[0]");
+    return subst_make_string("#HELPER# \$Q file ../mksync.$_[0]");
 }
 
 @syncfiles = qw(mksync.foo mksync.foo_start mksync.bar mksync.bar_start);
@@ -66,27 +66,32 @@ open(MAKEFILE,"> foo/Makefile");
 print MAKEFILE <<EOF;
 all: foo
 
-foo: foo-base ; \@$set_foo
+foo: foo-base ; $set_foo
 
 foo-base:
 \t\@echo foo: start
-\t\@$wait_bar
+\t$wait_bar
 \t\@echo foo: end
 
-foo-job: foo-job-base ; \@$set_foo
+foo-job: foo-job-base ; $set_foo
 
 foo-job-base:
-\t\@$wait_bar_start
+\t$wait_bar_start
 \t\@echo foo: start
-\t\@$set_foo_start
-\t\@$wait_bar
+\t$set_foo_start
+\t$wait_bar
 \t\@echo foo: end
 
 foo-fail:
 \t\@echo foo-fail: start
-\t\@$wait_bar
+\t$wait_bar
 \t\@echo foo-fail: end
-\t\@exit 1
+\texit 1
+
+V :=
+\$V.SILENT:
+Q :=
+\$VQ := -q
 EOF
 close(MAKEFILE);
 
@@ -94,45 +99,51 @@ open(MAKEFILE,"> bar/Makefile");
 print MAKEFILE <<EOF;
 all: bar baz
 
-bar: bar-base ; \@$set_bar
+bar: bar-base ; $set_bar
 bar-base:
 \t\@echo bar: start
 \t\@echo bar: end
 
-bar-job: bar-job-base ; \@$set_bar
+bar-job: bar-job-base ; $set_bar
 
 bar-job-base:
 \t\@echo bar: start
-\t\@$set_bar_start
-\t\@$wait_foo_start
+\t$set_bar_start
+\t$wait_foo_start
 \t\@echo bar: end
 
 baz: baz-base
 baz-base:
 \t\@echo baz: start
-\t\@$wait_foo
+\t$wait_foo
 \t\@echo baz: end
+
+V :=
+\$V.SILENT:
+Q :=
+\$VQ := -q
 EOF
 close(MAKEFILE);
 
-# benh: Skip tests of -Orecurse and -Otarget which are broken
-if (0) {
-
 # Test per-make synchronization.
+# Note we have to sleep again here after starting the foo makefile before
+# starting the bar makefile, otherwise the "entering/leaving" messages for the
+# submakes might be ordered differently than we expect.
+
 unlink(@syncfiles);
 run_make_test(qq!
 all: make-foo make-bar
 
 make-foo: ; \$(MAKE) -C foo
 
-make-bar: ; \$(MAKE) -C bar!,
+make-bar: ; #HELPER# -q sleep 1 ; \$(MAKE) -C bar!,
               '-j -Orecurse',
 "#MAKEPATH# -C foo
 #MAKE#[1]: Entering directory '#PWD#/foo'
 foo: start
 foo: end
 #MAKE#[1]: Leaving directory '#PWD#/foo'
-#MAKEPATH# -C bar
+#HELPER# -q sleep 1 ; #MAKEPATH# -C bar
 #MAKE#[1]: Entering directory '#PWD#/bar'
 bar: start
 bar: end
@@ -207,8 +218,6 @@ foo-fail: end
 #MAKE#: *** [#MAKEFILE#:4: make-foo-fail] Error 2\n",
 512);
 
-}
-
 # Test the per-job synchronization.
 # For this we'll have bar-job:
 #   print start, invoke bar-start, wait for foo-start, print end, print-bar-end
@@ -249,9 +258,7 @@ all:
 !,
               '-j -Oline', "foo\nbar\n");
 
-if (0) {
 run_make_test(undef, '-j -Otarget', "foo\nbar\n");
-}
 
 # Ensure when make writes out command it's not misordered
 run_make_test(qq!
@@ -261,17 +268,13 @@ all:
 !,
               '-j -Oline', "foobar\ntrue\n");
 
-if (0) {
 run_make_test(undef, '-j -Otarget', "foobar\ntrue\n");
-}
 
 # Ensure that shell functions inside recipes write stderr to the sync file
 run_make_test(q!
 all: ; @: $(shell echo foo 1>&2)
 !,
               '-w -Oline', "#MAKE#: Entering directory '#PWD#'\nfoo\n#MAKE#: Leaving directory '#PWD#'\n");
-
-if (0) {
 
 # Ensure that output generated while parsing makefiles is synced
 # when appropriate.
@@ -280,8 +283,6 @@ $(shell echo foo 1>&2)
 all: ; echo bar
 !,
               '-s -w -Otarget', "#MAKE#: Entering directory '#PWD#'\nfoo\n#MAKE#: Leaving directory '#PWD#'\n#MAKE#: Entering directory '#PWD#'\nbar\n#MAKE#: Leaving directory '#PWD#'\n");
-
-}
 
 # Test recursion
 $m1 = get_tmpfile();
@@ -349,6 +350,47 @@ if ($port_type ne 'W32') {
 all:: ; @./foo bar baz
 !,
               '-O', "#MAKE#: ./foo: $ERR_no_such_file\n#MAKE#: *** [#MAKEFILE#:2: all] Error 127\n", 512);
+}
+
+if ($port_type eq 'UNIX') {
+# POSIX doesn't require sh to set PPID so test this
+my $cmd = create_command();
+add_options($cmd, '-f', '/dev/null', '-E', q!all:;@echo $$PPID!);
+my $fout = 'ppidtest.out';
+run_command_with_output($fout, @$cmd);
+$_ = read_file_into_string($fout);
+s/\r?\n//g;
+if (/^[0-9]+$/) {
+use POSIX ();
+# SV 63157.
+# Test that make removes temporary files, even when a signal is received.  The
+# general test_driver postprocessing will ensure the temporary file used to
+# synchronize output and the jobserver fifo are both removed.  sleep is needed
+# to let make write its "... Terminated" message to the log file.  Must use
+# REGEX because some systems (MacOS) add extra text after Terminated.
+run_make_test(q!
+pid:=$(shell echo $$PPID)
+all:; @#HELPER# -q term $(pid) sleep 10
+!, '-O -j2', '/#MAKE#: \*\*\* \[#MAKEFILE#:3: all] Terminated/', POSIX::SIGTERM);
+}
+unlink($fout);
+
+# SV 63333. Test that make continues to run without output sync when we
+# cannot create a temporary file.
+# Create a non-writable temporary directory.
+# Run the test twice, because run_make_test cannot match a regex against a
+# multiline input.
+my $tdir = 'test_tmp_dir';
+mkdir($tdir, 0500);
+$ENV{'TMPDIR'} = $tdir;
+
+run_make_test(q!
+all:; $(info hello, world)
+!, '-Orecurse', "/suppressing output-sync/");
+
+run_make_test(undef, '-Orecurse', "/#MAKE#: 'all' is up to date./");
+
+rmdir($tdir);
 }
 
 # This tells the test driver that the perl test script executed properly.
