@@ -1,5 +1,5 @@
 /* Data base of default implicit rules for GNU Make.
-Copyright (C) 1988-2020 Free Software Foundation, Inc.
+Copyright (C) 1988-2023 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -12,7 +12,7 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include "makeint.h"
 
@@ -506,7 +506,7 @@ static const char *default_variables[] =
     "COMPILE.s", "$(AS) $(ASFLAGS) $(TARGET_MACH)",
     "LINK.S", "$(CC) $(ASFLAGS) $(CPPFLAGS) $(LDFLAGS) $(TARGET_MACH)",
     "COMPILE.S", "$(CC) $(ASFLAGS) $(CPPFLAGS) $(TARGET_MACH) -c",
-    "PREPROCESS.S", "$(CC) -E $(CPPFLAGS)",
+    "PREPROCESS.S", "$(CPP) $(CPPFLAGS)",
     "PREPROCESS.F", "$(FC) $(FFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -F",
     "PREPROCESS.r", "$(FC) $(FFLAGS) $(RFLAGS) $(TARGET_ARCH) -F",
     "LINT.c", "$(LINT) $(LINTFLAGS) $(CPPFLAGS) $(TARGET_ARCH)",
@@ -518,22 +518,33 @@ static const char *default_variables[] =
 #else /* !VMS */
 
     "AR", "ar",
-    "ARFLAGS", "rv",
+#ifdef _AIX
+    /* AIX requires object file format specification: choose -Xany.  */
+    "ARFLAGS", "-Xany -rv",
+#else
+    "ARFLAGS", "-rv",
+#endif
     "AS", "as",
 #ifdef GCC_IS_NATIVE
     "CC", "gcc",
-# ifdef __MSDOS__
-    "CXX", "gpp",       /* g++ is an invalid name on MSDOS */
-# else
-    "CXX", "gcc",
-# endif /* __MSDOS__ */
     "OBJC", "gcc",
 #else
     "CC", "cc",
-    "CXX", "g++",
     "OBJC", "cc",
 #endif
-
+#ifdef MAKE_CXX
+    "CXX", MAKE_CXX,
+#else
+# ifdef GCC_IS_NATIVE
+#  ifdef __MSDOS__
+    "CXX", "gpp",       /* g++ is an invalid name on MSDOS */
+#  else
+    "CXX", "gcc",
+#  endif /* __MSDOS__ */
+# else
+    "CXX", "g++",
+# endif
+#endif
     /* This expands to $(CO) $(COFLAGS) $< $@ if $@ does not exist,
        and to the empty string if $@ does exist.  */
     "CHECKOUT,v", "+$(if $(wildcard $@),,$(CO) $(COFLAGS) $< $@)",
@@ -636,7 +647,7 @@ static const char *default_variables[] =
     "COMPILE.s", "$(AS) $(ASFLAGS) $(TARGET_MACH)",
     "LINK.S", "$(CC) $(ASFLAGS) $(CPPFLAGS) $(LDFLAGS) $(TARGET_MACH)",
     "COMPILE.S", "$(CC) $(ASFLAGS) $(CPPFLAGS) $(TARGET_MACH) -c",
-    "PREPROCESS.S", "$(CC) -E $(CPPFLAGS)",
+    "PREPROCESS.S", "$(CPP) $(CPPFLAGS)",
     "PREPROCESS.F", "$(FC) $(FFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -F",
     "PREPROCESS.r", "$(FC) $(FFLAGS) $(RFLAGS) $(TARGET_ARCH) -F",
     "LINT.c", "$(LINT) $(LINTFLAGS) $(CPPFLAGS) $(TARGET_ARCH)",
@@ -663,7 +674,7 @@ static const char *default_variables[] =
 
 #endif /* !VMS */
     /* Make this assignment to avoid undefined variable warnings.  */
-    "GNUMAKEFLAGS", "",
+    GNUMAKEFLAGS_NAME, "",
     0, 0
   };
 
@@ -696,7 +707,7 @@ set_default_suffixes (void)
    installed after.  */
 
 void
-install_default_suffix_rules (void)
+install_default_suffix_rules ()
 {
   const char **s;
 
@@ -706,14 +717,16 @@ install_default_suffix_rules (void)
   for (s = default_suffix_rules; *s != 0; s += 2)
     {
       struct file *f = enter_file (strcache_add (s[0]));
-      /* This function should run before any makefile is parsed.  */
-      assert (f->cmds == 0);
-      f->cmds = xmalloc (sizeof (struct commands));
-      f->cmds->fileinfo.filenm = 0;
-      f->cmds->commands = xstrdup (s[1]);
-      f->cmds->command_lines = 0;
-      f->cmds->recipe_prefix = RECIPEPREFIX_DEFAULT;
-      f->builtin = 1;
+      /* Install the default rule only if there is no user defined rule.  */
+      if (!f->cmds)
+        {
+          f->cmds = xmalloc (sizeof (struct commands));
+          f->cmds->fileinfo.filenm = NULL;
+          f->cmds->commands = xstrdup (s[1]);
+          f->cmds->command_lines = NULL;
+          f->cmds->recipe_prefix = RECIPEPREFIX_DEFAULT;
+          f->builtin = 1;
+        }
     }
 }
 

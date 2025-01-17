@@ -1,13 +1,13 @@
 /* vms_exit.c
  *
- * Wrapper for the VMS exit() command to tranlate UNIX codes to be
+ * Wrapper for the VMS exit() command to translate UNIX codes to be
  * encoded for POSIX, but also have VMS severity levels.
  * The posix_exit() variant only sets a severity level for status code 1.
  *
  * Author: John E. Malmberg
  */
 
-/* Copyright (C) 2014-2020 Free Software Foundation, Inc.
+/* Copyright (C) 2014-2023 Free Software Foundation, Inc.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
 terms of the GNU General Public License as published by the Free Software
@@ -19,7 +19,7 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 
 /* Per copyright assignment agreement with the Free Software Foundation
@@ -36,7 +36,7 @@ decc$exit (int status);
 #endif
 
 /* Lowest legal non-success VMS exit code is 8 */
-/* GNU make only defines codes 0, 1, 2 */
+/* GNU Make only defines codes 0, 1, 2 */
 /* So assume any exit code > 8 is a VMS exit code */
 
 #ifndef MAX_EXPECTED_EXIT_CODE

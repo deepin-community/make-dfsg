@@ -3,7 +3,7 @@ NOTE: getopt is now part of the C library, so if you don't know what
 "Keep this file name-space clean" means, talk to drepper@gnu.org
 before changing it!
 
-Copyright (C) 1987-2020 Free Software Foundation, Inc.
+Copyright (C) 1987-2023 Free Software Foundation, Inc.
 
 NOTE: The canonical source of this file is maintained with the GNU C Library.
 Bugs can be reported to bug-glibc@gnu.org.
@@ -18,7 +18,7 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 /* This tells Alpha OSF/1 not to define a getopt prototype in <stdio.h>.
    Ditto for AIX 3.2 and <stdlib.h>.  */
@@ -436,6 +436,10 @@ _getopt_initialize (int argc, char *const *argv, const char *optstring)
     nonoption_flags_len = 0;
 #endif
 
+  /* Make the compiler happy.  */
+  (void)argc;
+  (void)argv;
+
   return optstring;
 }
 
@@ -677,17 +681,18 @@ _getopt_internal (int argc, char *const *argv, const char *optstring,
 	      else
 		{
 		  if (opterr)
-		   if (argv[optind - 1][1] == '-')
-		    /* --option */
-		    fprintf (stderr,
-		     _("%s: option '--%s' doesn't allow an argument\n"),
-		     argv[0], pfound->name);
-		   else
-		    /* +option or -option */
-		    fprintf (stderr,
-		     _("%s: option '%c%s' doesn't allow an argument\n"),
-		     argv[0], argv[optind - 1][0], pfound->name);
-
+		    {
+		      if (argv[optind - 1][1] == '-')
+		        /* --option */
+		        fprintf (stderr,
+		                 _("%s: option '--%s' doesn't allow an argument\n"),
+		                 argv[0], pfound->name);
+		      else
+		        /* +option or -option */
+		        fprintf (stderr,
+		                 _("%s: option '%c%s' doesn't allow an argument\n"),
+		                 argv[0], argv[optind - 1][0], pfound->name);
+		    }
 		  nextchar += strlen (nextchar);
 
 		  optopt = pfound->val;

@@ -1,0 +1,52 @@
+From: Manoj Srivastava <srivasta@debian.org>
+Date: Sat, 16 Jan 2016 12:55:37 -0800
+Subject: Fix issues with ar operating in deterministic mode
+
+It looks like the ar program in the binutils package in debian is now
+configured with --enable-deterministic-archives. However, when dealing
+with archive members, make needs the timestamp of the file in order to
+decide to update it or not. With the current deterministic behavior of
+ar, the timestamp is always 0. This change in ar introduced a behavior
+that is not backward compatible and forces the use of the option U.
+
+make fails to build, failing 7 out of 10 archive tests. Since make seems
+to depend on timestamps to handle rebuilds of archives correctly, it
+makes sense to always pass on the -U flag, and depend on a version of ar
+that supports it.
+
+Should this U option be included in a Makefile, older versions of ar
+would reject it and fail.
+
+There is some online discussion:
+https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=798804
+https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=798913
+https://bugzilla.redhat.com/show_bug.cgi?id=1195883
+
+Last-Update: 2023-02-12
+---
+ src/read.c                  | 2 +-
+ tests/scripts/targets/POSIX | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+--- a/src/read.c
++++ b/src/read.c
+@@ -1911,7 +1911,7 @@
+           define_variable_cname ("FC", "fort77", o_default, 0);
+           define_variable_cname ("FFLAGS", "-O1", o_default, 0);
+           define_variable_cname ("SCCSGETFLAGS", "-s", o_default, 0);
+-          define_variable_cname ("ARFLAGS", "-rv", o_default, 0);
++          define_variable_cname ("ARFLAGS", "-rvU", o_default, 0);
+           continue;
+         }
+ 
+--- a/tests/scripts/targets/POSIX
++++ b/tests/scripts/targets/POSIX
+@@ -70,7 +70,7 @@
+               '', $out);
+ 
+ # Test the default value of various POSIX-specific variables
+-my %POSIX = (AR => 'ar', ARFLAGS => '-rv',
++my %POSIX = (AR => 'ar', ARFLAGS => '-rvU',
+              YACC => 'yacc', YFLAGS => '',
+              LEX => 'lex', LFLAGS => '',
+              LDFLAGS => '',

@@ -1,9 +1,9 @@
 # DO NOT EDIT! GENERATED AUTOMATICALLY!
-# Copyright (C) 2002-2020 Free Software Foundation, Inc.
+# Copyright (C) 2002-2023 Free Software Foundation, Inc.
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 3 of the License, or
+# the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
 # This file is distributed in the hope that it will be useful,
@@ -42,67 +42,32 @@ AC_DEFUN([gl_EARLY],
   AC_REQUIRE([gl_USE_SYSTEM_EXTENSIONS])
   AC_REQUIRE([gl_PROG_AR_RANLIB])
 
-  # Code from module absolute-header:
-  # Code from module access:
   # Code from module alloca:
   # Code from module alloca-opt:
-  # Code from module close:
+  # Code from module c99:
   # Code from module concat-filename:
-  # Code from module dirname-lgpl:
-  # Code from module dosname:
-  # Code from module double-slash-root:
-  # Code from module dup2:
-  # Code from module errno:
-  # Code from module error:
-  # Code from module exitfail:
   # Code from module extensions:
-  # Code from module extern-inline:
-  # Code from module fcntl:
-  # Code from module fcntl-h:
-  # Code from module fd-hook:
   # Code from module fdl:
   # Code from module filename:
   # Code from module findprog-in:
-  # Code from module getdtablesize:
+  # Code from module gen-header:
   # Code from module getloadavg:
-  # Code from module getprogname:
-  # Code from module gettext-h:
   # Code from module host-cpu-c-abi:
-  # Code from module include_next:
   # Code from module intprops:
-  # Code from module limits-h:
+  # Code from module largefile:
+  AC_REQUIRE([AC_SYS_LARGEFILE])
   # Code from module make-glob:
-  # Code from module malloc-posix:
-  # Code from module msvc-inval:
-  # Code from module msvc-nothrow:
-  # Code from module multiarch:
-  # Code from module snippet/_Noreturn:
-  # Code from module snippet/arg-nonnull:
-  # Code from module snippet/c++defs:
+  # Code from module make-macros:
   # Code from module snippet/warn-on-use:
-  # Code from module ssize_t:
+  # Code from module std-gnu11:
   # Code from module stdbool:
-  # Code from module stddef:
-  # Code from module stdint:
-  # Code from module stdio:
-  # Code from module stdlib:
-  # Code from module stpcpy:
-  # Code from module strerror:
-  # Code from module strerror-override:
-  # Code from module string:
-  # Code from module sys_types:
-  # Code from module unistd:
-  # Code from module verify:
-  # Code from module xalloc:
-  # Code from module xalloc-die:
-  # Code from module xalloc-oversized:
-  # Code from module xconcat-filename:
 ])
 
 # This macro should be invoked from ./configure.ac, in the section
 # "Check for header files, types and library functions".
 AC_DEFUN([gl_INIT],
 [
+  AC_CONFIG_LIBOBJ_DIR([lib])
   AM_CONDITIONAL([GL_COND_LIBTOOL], [false])
   gl_cond_libtool=false
   gl_libdeps=
@@ -113,125 +78,88 @@ AC_DEFUN([gl_INIT],
   m4_pushdef([AC_LIBSOURCES], m4_defn([gl_LIBSOURCES]))
   m4_pushdef([gl_LIBSOURCES_LIST], [])
   m4_pushdef([gl_LIBSOURCES_DIR], [])
+  m4_pushdef([GL_MACRO_PREFIX], [gl])
+  m4_pushdef([GL_MODULE_INDICATOR_PREFIX], [GL])
   gl_COMMON
   gl_source_base='lib'
-  gl_FUNC_ACCESS
-  if test $REPLACE_ACCESS = 1; then
-    AC_LIBOBJ([access])
-  fi
-  gl_UNISTD_MODULE_INDICATOR([access])
+  gl_source_base_prefix=
   gl_FUNC_ALLOCA
-  gl_FUNC_CLOSE
-  if test $REPLACE_CLOSE = 1; then
-    AC_LIBOBJ([close])
-  fi
-  gl_UNISTD_MODULE_INDICATOR([close])
-  gl_DIRNAME_LGPL
-  gl_DOUBLE_SLASH_ROOT
-  gl_FUNC_DUP2
-  if test $HAVE_DUP2 = 0 || test $REPLACE_DUP2 = 1; then
-    AC_LIBOBJ([dup2])
-    gl_PREREQ_DUP2
-  fi
-  gl_UNISTD_MODULE_INDICATOR([dup2])
-  gl_HEADER_ERRNO_H
-  gl_ERROR
-  if test $ac_cv_lib_error_at_line = no; then
-    AC_LIBOBJ([error])
-    gl_PREREQ_ERROR
-  fi
-  m4_ifdef([AM_XGETTEXT_OPTION],
-    [AM_][XGETTEXT_OPTION([--flag=error:3:c-format])
-     AM_][XGETTEXT_OPTION([--flag=error_at_line:5:c-format])])
-  AC_REQUIRE([gl_EXTERN_INLINE])
-  gl_FUNC_FCNTL
-  if test $HAVE_FCNTL = 0 || test $REPLACE_FCNTL = 1; then
-    AC_LIBOBJ([fcntl])
-  fi
-  gl_FCNTL_MODULE_INDICATOR([fcntl])
-  gl_FCNTL_H
+  gl_CONDITIONAL_HEADER([alloca.h])
+  AC_PROG_MKDIR_P
   gl_FINDPROG_IN
-  gl_FUNC_GETDTABLESIZE
-  if test $HAVE_GETDTABLESIZE = 0 || test $REPLACE_GETDTABLESIZE = 1; then
-    AC_LIBOBJ([getdtablesize])
-    gl_PREREQ_GETDTABLESIZE
-  fi
-  gl_UNISTD_MODULE_INDICATOR([getdtablesize])
+  gl_STDLIB_H
+  gl_STDLIB_H_REQUIRE_DEFAULTS
+  AC_REQUIRE([AC_CANONICAL_HOST])
   gl_GETLOADAVG
-  if test $HAVE_GETLOADAVG = 0; then
-    AC_LIBOBJ([getloadavg])
+  gl_CONDITIONAL([GL_COND_OBJ_GETLOADAVG], [test $HAVE_GETLOADAVG = 0])
+  AM_COND_IF([GL_COND_OBJ_GETLOADAVG], [
     gl_PREREQ_GETLOADAVG
-  fi
+  ])
   gl_STDLIB_MODULE_INDICATOR([getloadavg])
-  gl_FUNC_GETPROGNAME
-  AC_SUBST([LIBINTL])
-  AC_SUBST([LTLIBINTL])
   AC_REQUIRE([gl_HOST_CPU_C_ABI])
-  gl_LIMITS_H
+  AC_REQUIRE([gl_LARGEFILE])
   # Check the system to see if it provides GNU glob.  If not, use our
-  # local version.
-  AC_CACHE_CHECK([if system libc has GNU glob], [make_cv_sys_gnu_glob],
-  [ AC_EGREP_CPP([gnu glob],[
-  #include <features.h>
-  #include <glob.h>
-  #include <fnmatch.h>
-  #if !defined _LIBC && defined __GNU_LIBRARY__ && __GNU_LIBRARY__ > 1
-  # include <gnu-versions.h>
-  # if _GNU_GLOB_INTERFACE_VERSION == 1 || _GNU_GLOB_INTERFACE_VERSION == 2
-     gnu glob
-  # endif
-  #endif],
-          [make_cv_sys_gnu_glob=yes],
-          [make_cv_sys_gnu_glob=no])])
+  # local version.  Also avoid versions of glibc which have symlink bug
+  # https://sourceware.org/bugzilla/show_bug.cgi?id=866 (test from gnulib)
+  AC_CACHE_CHECK([if system libc has working GNU glob], [make_cv_sys_gnu_glob],[
+    if ln -s conf-doesntexist conf$$-globtest 2>/dev/null; then
+      make_check_symlink=yes
+    else
+      make_check_symlink=no
+    fi
+    if test $cross_compiling = yes || test $make_check_symlink = no; then
+      # When cross-compiling or without symlink support, check the version
+      AC_COMPILE_IFELSE(
+        [AC_LANG_PROGRAM(
+          [[#include <features.h>
+            #include <gnu-versions.h>
+            #include <glob.h>
+            #include <fnmatch.h>
+          ]],
+          [[
+            #if _GNU_GLOB_INTERFACE_VERSION == 0
+              GNU glob not available in libc
+            #elif __GLIBC__ < 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ < 27)
+              GNU glob in libc has dangling symlink bug
+            #endif
+          ]])],
+        [make_cv_sys_gnu_glob=yes],
+        [make_cv_sys_gnu_glob=no])
+    else
+      # Check for GNU glob, and that it handles dangling symlinks properly
+      AC_RUN_IFELSE(
+        [AC_LANG_PROGRAM(
+          [[#include <features.h>
+            #include <gnu-versions.h>
+            #include <glob.h>
+            #include <fnmatch.h>
+          ]],
+          [[
+            #if _GNU_GLOB_INTERFACE_VERSION == 0
+            return 1;
+            #else
+            glob_t found;
+            if (glob ("conf*-globtest", 0, 0, &found) == GLOB_NOMATCH)
+              return 1;
+            globfree (&found);
+            #endif
+          ]])],
+        [make_cv_sys_gnu_glob=yes],
+        [make_cv_sys_gnu_glob=no],
+        [dnl We don't get here.
+         :
+        ])
+    fi
+    test $make_check_symlink = no || rm -f conf$$-globtest
+  ])
   # Tell automake about this, so it can build the right .c files.
   AM_CONDITIONAL([USE_SYSTEM_GLOB], [test "$make_cv_sys_gnu_glob" = yes])
   # Tell build.sh which to use
   USE_SYSTEM_GLOB="$make_cv_sys_gnu_glob"
   AC_SUBST([USE_SYSTEM_GLOB])
-  gl_FUNC_MALLOC_POSIX
-  if test $REPLACE_MALLOC = 1; then
-    AC_LIBOBJ([malloc])
-  fi
-  gl_STDLIB_MODULE_INDICATOR([malloc-posix])
-  AC_REQUIRE([gl_MSVC_INVAL])
-  if test $HAVE_MSVC_INVALID_PARAMETER_HANDLER = 1; then
-    AC_LIBOBJ([msvc-inval])
-  fi
-  AC_REQUIRE([gl_MSVC_NOTHROW])
-  if test $HAVE_MSVC_INVALID_PARAMETER_HANDLER = 1; then
-    AC_LIBOBJ([msvc-nothrow])
-  fi
-  gl_MODULE_INDICATOR([msvc-nothrow])
-  gl_MULTIARCH
-  gt_TYPE_SSIZE_T
-  AM_STDBOOL_H
-  gl_STDDEF_H
-  gl_STDINT_H
-  gl_STDIO_H
-  gl_STDLIB_H
-  gl_FUNC_STPCPY
-  if test $HAVE_STPCPY = 0; then
-    AC_LIBOBJ([stpcpy])
-    gl_PREREQ_STPCPY
-  fi
-  gl_STRING_MODULE_INDICATOR([stpcpy])
-  gl_FUNC_STRERROR
-  if test $REPLACE_STRERROR = 1; then
-    AC_LIBOBJ([strerror])
-  fi
-  gl_MODULE_INDICATOR([strerror])
-  gl_STRING_MODULE_INDICATOR([strerror])
-  AC_REQUIRE([gl_HEADER_ERRNO_H])
-  AC_REQUIRE([gl_FUNC_STRERROR_0])
-  if test -n "$ERRNO_H" || test $REPLACE_STRERROR_0 = 1; then
-    AC_LIBOBJ([strerror-override])
-    gl_PREREQ_SYS_H_WINSOCK2
-  fi
-  gl_HEADER_STRING_H
-  gl_SYS_TYPES_H
-  AC_PROG_MKDIR_P
-  gl_UNISTD_H
-  gl_XALLOC
+  # Check for DOS-style pathnames.
+  pds_AC_DOS_PATHS
+  gl_C_BOOL
   # End of code from modules
   m4_ifval(gl_LIBSOURCES_LIST, [
     m4_syscmd([test ! -d ]m4_defn([gl_LIBSOURCES_DIR])[ ||
@@ -244,6 +172,8 @@ AC_DEFUN([gl_INIT],
       m4_if(m4_sysval, [0], [],
         [AC_FATAL([expected source file, required through AC_LIBSOURCES, not found])])
   ])
+  m4_popdef([GL_MODULE_INDICATOR_PREFIX])
+  m4_popdef([GL_MACRO_PREFIX])
   m4_popdef([gl_LIBSOURCES_DIR])
   m4_popdef([gl_LIBSOURCES_LIST])
   m4_popdef([AC_LIBSOURCES])
@@ -252,16 +182,28 @@ AC_DEFUN([gl_INIT],
   AC_CONFIG_COMMANDS_PRE([
     gl_libobjs=
     gl_ltlibobjs=
+    gl_libobjdeps=
     if test -n "$gl_LIBOBJS"; then
       # Remove the extension.
+changequote(,)dnl
       sed_drop_objext='s/\.o$//;s/\.obj$//'
+      sed_dirname1='s,//*,/,g'
+      sed_dirname2='s,\(.\)/$,\1,'
+      sed_dirname3='s,^[^/]*$,.,'
+      sed_dirname4='s,\(.\)/[^/]*$,\1,'
+      sed_basename1='s,.*/,,'
+changequote([, ])dnl
       for i in `for i in $gl_LIBOBJS; do echo "$i"; done | sed -e "$sed_drop_objext" | sort | uniq`; do
         gl_libobjs="$gl_libobjs $i.$ac_objext"
         gl_ltlibobjs="$gl_ltlibobjs $i.lo"
+        i_dir=`echo "$i" | sed -e "$sed_dirname1" -e "$sed_dirname2" -e "$sed_dirname3" -e "$sed_dirname4"`
+        i_base=`echo "$i" | sed -e "$sed_basename1"`
+        gl_libobjdeps="$gl_libobjdeps $i_dir/\$(DEPDIR)/$i_base.Po"
       done
     fi
     AC_SUBST([gl_LIBOBJS], [$gl_libobjs])
     AC_SUBST([gl_LTLIBOBJS], [$gl_ltlibobjs])
+    AC_SUBST([gl_LIBOBJDEPS], [$gl_libobjdeps])
   ])
   gltests_libdeps=
   gltests_ltlibdeps=
@@ -270,8 +212,11 @@ AC_DEFUN([gl_INIT],
   m4_pushdef([AC_LIBSOURCES], m4_defn([gltests_LIBSOURCES]))
   m4_pushdef([gltests_LIBSOURCES_LIST], [])
   m4_pushdef([gltests_LIBSOURCES_DIR], [])
+  m4_pushdef([GL_MACRO_PREFIX], [gltests])
+  m4_pushdef([GL_MODULE_INDICATOR_PREFIX], [GL])
   gl_COMMON
   gl_source_base='tests'
+  gl_source_base_prefix=
 changequote(,)dnl
   gltests_WITNESS=IN_`echo "${PACKAGE-$PACKAGE_TARNAME}" | LC_ALL=C tr abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ | LC_ALL=C sed -e 's/[^A-Z0-9_]/_/g'`_GNULIB_TESTS
 changequote([, ])dnl
@@ -290,6 +235,8 @@ changequote([, ])dnl
       m4_if(m4_sysval, [0], [],
         [AC_FATAL([expected source file, required through AC_LIBSOURCES, not found])])
   ])
+  m4_popdef([GL_MODULE_INDICATOR_PREFIX])
+  m4_popdef([GL_MACRO_PREFIX])
   m4_popdef([gltests_LIBSOURCES_DIR])
   m4_popdef([gltests_LIBSOURCES_LIST])
   m4_popdef([AC_LIBSOURCES])
@@ -298,17 +245,30 @@ changequote([, ])dnl
   AC_CONFIG_COMMANDS_PRE([
     gltests_libobjs=
     gltests_ltlibobjs=
+    gltests_libobjdeps=
     if test -n "$gltests_LIBOBJS"; then
       # Remove the extension.
+changequote(,)dnl
       sed_drop_objext='s/\.o$//;s/\.obj$//'
+      sed_dirname1='s,//*,/,g'
+      sed_dirname2='s,\(.\)/$,\1,'
+      sed_dirname3='s,^[^/]*$,.,'
+      sed_dirname4='s,\(.\)/[^/]*$,\1,'
+      sed_basename1='s,.*/,,'
+changequote([, ])dnl
       for i in `for i in $gltests_LIBOBJS; do echo "$i"; done | sed -e "$sed_drop_objext" | sort | uniq`; do
         gltests_libobjs="$gltests_libobjs $i.$ac_objext"
         gltests_ltlibobjs="$gltests_ltlibobjs $i.lo"
+        i_dir=`echo "$i" | sed -e "$sed_dirname1" -e "$sed_dirname2" -e "$sed_dirname3" -e "$sed_dirname4"`
+        i_base=`echo "$i" | sed -e "$sed_basename1"`
+        gltests_libobjdeps="$gltests_libobjdeps $i_dir/\$(DEPDIR)/$i_base.Po"
       done
     fi
     AC_SUBST([gltests_LIBOBJS], [$gltests_libobjs])
     AC_SUBST([gltests_LTLIBOBJS], [$gltests_ltlibobjs])
+    AC_SUBST([gltests_LIBOBJDEPS], [$gltests_libobjdeps])
   ])
+  AC_REQUIRE([gl_CC_GNULIB_WARNINGS])
   LIBGNU_LIBDEPS="$gl_libdeps"
   AC_SUBST([LIBGNU_LIBDEPS])
   LIBGNU_LTLIBDEPS="$gl_ltlibdeps"
@@ -373,109 +333,35 @@ AC_DEFUN([gltests_LIBSOURCES], [
 # gnulib-tool and may be removed by future gnulib-tool invocations.
 AC_DEFUN([gl_FILE_LIST], [
   doc/fdl.texi
-  lib/_Noreturn.h
-  lib/access.c
   lib/alloca.c
   lib/alloca.in.h
-  lib/arg-nonnull.h
-  lib/basename-lgpl.c
-  lib/c++defs.h
-  lib/close.c
   lib/concat-filename.c
   lib/concat-filename.h
-  lib/dirname-lgpl.c
-  lib/dirname.h
-  lib/dosname.h
-  lib/dup2.c
-  lib/errno.in.h
-  lib/error.c
-  lib/error.h
-  lib/exitfail.c
-  lib/exitfail.h
-  lib/fcntl.c
-  lib/fcntl.in.h
-  lib/fd-hook.c
-  lib/fd-hook.h
   lib/filename.h
   lib/findprog-in.c
   lib/findprog.h
-  lib/getdtablesize.c
+  lib/fnmatch.c
+  lib/fnmatch.in.h
   lib/getloadavg.c
-  lib/getprogname.c
-  lib/getprogname.h
-  lib/gettext.h
+  lib/glob.c
+  lib/glob.in.h
+  lib/intprops-internal.h
   lib/intprops.h
-  lib/limits.in.h
-  lib/malloc.c
-  lib/msvc-inval.c
-  lib/msvc-inval.h
-  lib/msvc-nothrow.c
-  lib/msvc-nothrow.h
-  lib/stdbool.in.h
-  lib/stddef.in.h
-  lib/stdint.in.h
-  lib/stdio.in.h
-  lib/stdlib.in.h
-  lib/stpcpy.c
-  lib/strerror-override.c
-  lib/strerror-override.h
-  lib/strerror.c
-  lib/string.in.h
-  lib/stripslash.c
-  lib/sys_types.in.h
-  lib/unistd.c
-  lib/unistd.in.h
-  lib/verify.h
   lib/warn-on-use.h
-  lib/xalloc-die.c
-  lib/xalloc-oversized.h
-  lib/xalloc.h
-  lib/xconcat-filename.c
-  lib/xmalloc.c
   m4/00gnulib.m4
-  m4/absolute-header.m4
-  m4/access.m4
+  m4/acinclude.m4
   m4/alloca.m4
   m4/asm-underscore.m4
-  m4/close.m4
-  m4/dirname.m4
-  m4/double-slash-root.m4
-  m4/dup2.m4
+  m4/c-bool.m4
+  m4/dospaths.m4
   m4/eaccess.m4
-  m4/errno_h.m4
-  m4/error.m4
   m4/extensions.m4
-  m4/extern-inline.m4
-  m4/fcntl-o.m4
-  m4/fcntl.m4
-  m4/fcntl_h.m4
   m4/findprog-in.m4
-  m4/getdtablesize.m4
   m4/getloadavg.m4
-  m4/getprogname.m4
   m4/gnulib-common.m4
   m4/host-cpu-c-abi.m4
-  m4/include_next.m4
-  m4/limits-h.m4
-  m4/malloc.m4
-  m4/msvc-inval.m4
-  m4/msvc-nothrow.m4
-  m4/multiarch.m4
-  m4/off_t.m4
-  m4/ssize_t.m4
-  m4/stdbool.m4
-  m4/stddef_h.m4
-  m4/stdint.m4
-  m4/stdio_h.m4
-  m4/stdlib_h.m4
-  m4/stpcpy.m4
-  m4/strerror.m4
-  m4/string_h.m4
-  m4/sys_socket_h.m4
-  m4/sys_types_h.m4
-  m4/unistd_h.m4
+  m4/largefile.m4
+  m4/std-gnu11.m4
   m4/warn-on-use.m4
-  m4/wchar_t.m4
-  m4/wint_t.m4
-  m4/xalloc.m4
+  m4/zzgnulib.m4
 ])
