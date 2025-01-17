@@ -1,8 +1,7 @@
-README
-README.customs
-NEWS
 ABOUT-NLS
 AUTHORS
+NEWS
+README
+README.customs
 debian/Explanations
-debian/NEWS.Debian
-debian/README.Debian-Source
+debian/README.source

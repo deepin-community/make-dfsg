@@ -1,0 +1,11 @@
+Test-Command: debian/tests/run_make_tests.sh --without-guile
+Restrictions: rw-build-tree
+Features: test-name=make
+Depends: make,
+         @builddeps@,
+
+Test-Command: debian/tests/run_make_tests.sh --with-guile
+Restrictions: rw-build-tree
+Features: test-name=make-guile
+Depends: make-guile,
+         @builddeps@,

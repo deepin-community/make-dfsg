@@ -1,22 +1,24 @@
 Source: make-dfsg
-VCS-Git: https://salsa.debian.org/srivasta/make-dfsg.git
-VCS-Browser: https://salsa.debian.org/srivasta/make-dfsg
+Maintainer: Stephen Kitt <skitt@debian.org>
 Section: devel
 Priority: optional
-Maintainer: Manoj Srivastava <srivasta@debian.org>
-Standards-Version: 4.3.0
+Build-Depends: debhelper-compat (= 13),
+               guile-3.0-dev <!noguile>,
+               pkgconf,
+Standards-Version: 4.7.0
+Vcs-Browser: https://salsa.debian.org/debian/make
+Vcs-Git: https://salsa.debian.org/debian/make.git
 Homepage: https://www.gnu.org/software/make/
-Build-Depends: gettext, po-debconf, debhelper-compat (=12), dh-autoreconf,
-               autoconf, automake | automaken, autopoint, file, pkg-config,
-               guile-3.0-dev <!noguile>, procps, libbsd-resource-perl <!nocheck>
+Rules-Requires-Root: no
 
 Package: make
-Suggests: make-doc
-Conflicts: make-guile
 Architecture: any
-Priority: optional
-Replaces: make-guile
 Multi-Arch: allowed
+Depends: ${misc:Depends},
+         ${shlibs:Depends},
+Suggests: make-doc,
+Conflicts: make-guile,
+Replaces: make-guile,
 Description: utility for directing compilation
  GNU Make is a utility which controls the generation of executables
  and other target files of a program from the program's source
@@ -27,16 +29,16 @@ Description: utility for directing compilation
  corresponding input is newer --- it is not limited to building
  computer programs. Indeed, Make is a general purpose dependency
  solver.
-Depends: ${shlibs:Depends}, ${misc:Depends}
 
 Package: make-guile
-Suggests: make-doc
-Priority: extra
-Conflicts: make
-Provides: make (= ${source:Version})
-Replaces: make
 Architecture: any
 Multi-Arch: allowed
+Depends: ${misc:Depends},
+         ${shlibs:Depends},
+Suggests: make-doc,
+Conflicts: make,
+Provides: make (= ${source:Version}),
+Replaces: make,
 Description: utility for directing compilation with guile support
  GNU Make is a utility which controls the generation of executables
  and other target files of a program from the program's source
@@ -46,5 +48,5 @@ Description: utility for directing compilation with guile support
  are to be automatically updated based on input files whenever the
  corresponding input is newer --- it is not limited to building
  computer programs. Indeed, Make is a general purpose dependency
- solver. This variant has built in guile support
-Depends: ${shlibs:Depends}, ${misc:Depends}
+ solver. This variant has built in guile support.
+Build-Profiles: <!noguile>

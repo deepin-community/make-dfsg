@@ -1,1 +1,1 @@
-debian/make-first-existing-target /usr/bin
+debian/make-first-existing-target usr/bin

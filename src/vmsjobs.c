@@ -1,7 +1,7 @@
 /* --------------- Moved here from job.c ---------------
    This file must be #included in job.c, as it accesses static functions.
 
-Copyright (C) 1996-2020 Free Software Foundation, Inc.
+Copyright (C) 1996-2023 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -14,7 +14,7 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include <string.h>
 #include <descrip.h>
@@ -28,7 +28,7 @@ void
 decc$exit (int status);
 
 /* Lowest legal non-success VMS exit code is 8 */
-/* GNU make only defines codes 0, 1, 2 */
+/* GNU Make only defines codes 0, 1, 2 */
 /* So assume any exit code > 8 is a VMS exit code */
 
 #ifndef MAX_EXPECTED_EXIT_CODE
@@ -331,7 +331,7 @@ posix_parse_sq (struct token_info *token)
 static char *
 posix_parse_dq (struct token_info *token)
 {
-  /* Unix mode:  Any imbedded \" becomes doubled.
+  /* Unix mode:  Any embedded \" becomes doubled.
                  \t is tab, \\, \$ leading character stripped.
                  $ character replaced with \' unless escaped.
   */
@@ -367,7 +367,7 @@ posix_parse_dq (struct token_info *token)
             }
           INC_TOKEN_LEN_OR_BREAK;
         }
-      else if (*p == '$' && isalpha (p[1]))
+      else if (*p == '$' && isalpha ((unsigned char) p[1]))
         {
           /* A symbol we should be able to substitute */
           *q++ = '\'';
@@ -463,7 +463,7 @@ vms_parse_quotes (struct token_info *token)
                 }
               break;
             case '\'':
-              /* Symbol substitution ony in double quotes */
+              /* Symbol substitution only in double quotes */
               if ((p[1] == '\'') && (parse_level[nest] == '"'))
                 {
                   nest++;
@@ -506,7 +506,7 @@ posix_parse_dollar (struct token_info *token)
   *q++ = '\'';
   INC_TOKEN_LEN_OR_RETURN (p);
 
-  while ((isalnum (*p)) || (*p == '_'))
+  while ((isalnum ((unsigned char) *p)) || (*p == '_'))
     {
       *q++ = *p++;
       INC_TOKEN_LEN_OR_BREAK;
@@ -707,7 +707,7 @@ build_vms_cmd (char **cmd_tokens,
             }
 
           /* Optional whitespace */
-          if (isspace (cmd_tokens[cmd_tkn_index][0]))
+          if (isspace ((unsigned char) cmd_tokens[cmd_tkn_index][0]))
             {
               strcpy (&cmd[cmd_len], cmd_tokens[cmd_tkn_index]);
               cmd_len += strlen (cmd_tokens[cmd_tkn_index]);
@@ -789,7 +789,7 @@ build_vms_cmd (char **cmd_tokens,
       if (cmd_tkn_index == append_token)
         {
           free (cmd_tokens[cmd_tkn_index++]);
-          if (isspace (cmd_tokens[cmd_tkn_index][0]))
+          if (isspace ((unsigned char) cmd_tokens[cmd_tkn_index][0]))
             free (cmd_tokens[cmd_tkn_index++]);
           free (cmd_tokens[cmd_tkn_index++]);
         }
@@ -987,7 +987,7 @@ child_execute_job (struct childbase *child, int good_stdin UNUSED, char *argv)
           /* TODO: Should we diagnose if paren_level goes negative? */
           break;
         case '&':
-          if (isalpha (p[1]) && !vms_unix_simulation)
+          if (isalpha ((unsigned char) p[1]) && !vms_unix_simulation)
             {
               /* VMS symbol substitution */
               p = parse_text (&token, 0);
@@ -1061,7 +1061,7 @@ child_execute_job (struct childbase *child, int good_stdin UNUSED, char *argv)
           UPDATE_TOKEN;
           break;
         case ':':
-          if ((p[1] == 0) || isspace (p[1]))
+          if ((p[1] == 0) || isspace ((unsigned char) p[1]))
             {
               /* Unix Null command - treat as comment until next command */
               unix_echo_cmd = 0;
@@ -1115,7 +1115,7 @@ child_execute_job (struct childbase *child, int good_stdin UNUSED, char *argv)
           break;
         default:
           /* Skip repetitive whitespace */
-          if (isspace (*p))
+          if (isspace ((unsigned char) *p))
             {
               p = parse_char (&token, 1);
 
@@ -1125,7 +1125,7 @@ child_execute_job (struct childbase *child, int good_stdin UNUSED, char *argv)
                 token_str[0] = ' ';
               UPDATE_TOKEN;
 
-              while (isspace (*p))
+              while (isspace ((unsigned char) *p))
                 p++;
               if (assignment_hack != 0)
                 assignment_hack++;
@@ -1176,7 +1176,7 @@ child_execute_job (struct childbase *child, int good_stdin UNUSED, char *argv)
       char * raw_append_file;
       file_token = append_token;
       file_token++;
-      if (isspace (cmd_tokens[file_token][0]))
+      if (isspace ((unsigned char) cmd_tokens[file_token][0]))
         file_token++;
       raw_append_file = vmsify (cmd_tokens[file_token], 0);
       /* VMS DCL needs a trailing dot if null file extension */
@@ -1233,7 +1233,7 @@ child_execute_job (struct childbase *child, int good_stdin UNUSED, char *argv)
 
      Create a *.com file if either the command is too long for
      lib$spawn, or if a redirect appending to a file is desired, or
-     symbol substitition.
+     symbol substitution.
   */
 
   if (vms_always_use_cmd_file || token.use_cmd_file)
@@ -1241,11 +1241,8 @@ child_execute_job (struct childbase *child, int good_stdin UNUSED, char *argv)
       FILE *outfile;
       int cmd_len;
 
-      outfile = get_tmpfile (&child->comname,
-                             "sys$scratch:gnv$make_cmdXXXXXX.com");
-      /*                      123456789012345678901234567890 */
-      if (outfile == 0)
-        pfatal_with_name (_("fopen (temporary file)"));
+      outfile = get_tmpfile (&child->comname);
+
       comnamelen = strlen (child->comname);
 
       /* The whole DCL "script" is executed as one action, and it behaves as

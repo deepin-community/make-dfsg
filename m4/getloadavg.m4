@@ -1,13 +1,13 @@
 # Check for getloadavg.
 
-# Copyright (C) 1992-1996, 1999-2000, 2002-2003, 2006, 2008-2020 Free Software
-# Foundation, Inc.
+# Copyright (C) 1992-1996, 1999-2000, 2002-2003, 2006, 2008-2023 Free
+# Software Foundation, Inc.
 
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
 
-#serial 8
+#serial 10
 
 # Autoconf defines AC_FUNC_GETLOADAVG, but that is obsolescent.
 # New applications should use gl_GETLOADAVG instead.
@@ -45,7 +45,9 @@ AC_CHECK_FUNC([getloadavg], [],
      # There is a commonly available library for RS/6000 AIX.
      # Since it is not a standard part of AIX, it might be installed locally.
      gl_getloadavg_LIBS=$LIBS
-     LIBS="-L/usr/local/lib $LIBS"
+     if test $cross_compiling != yes; then
+       LIBS="-L/usr/local/lib $LIBS"
+     fi
      AC_CHECK_LIB([getloadavg], [getloadavg],
                   [LIBS="-lgetloadavg $LIBS" gl_func_getloadavg_done=yes],
                   [LIBS=$gl_getloadavg_LIBS])
@@ -145,7 +147,7 @@ fi
 AC_CHECK_HEADERS([nlist.h],
 [AC_CHECK_MEMBERS([struct nlist.n_un.n_name],
                   [], [],
-                  [@%:@include <nlist.h>])
+                  [#include <nlist.h>])
  AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <nlist.h>]],
                    [[struct nlist x;
                     #ifdef HAVE_STRUCT_NLIST_N_UN_N_NAME
@@ -157,3 +159,58 @@ AC_CHECK_HEADERS([nlist.h],
                            [Define to 1 if the nlist n_name member is a pointer])])
 ])dnl
 ])# gl_PREREQ_GETLOADAVG
+
+# ---- GNU Make
+# These macros are imported from stdlib which we don't want to include
+# Only the getloadavg content is imported.
+
+AC_DEFUN_ONCE([gl_STDLIB_H],
+[
+  AC_REQUIRE([gl_STDLIB_H_DEFAULTS])
+
+  dnl Check for declarations of anything we want to poison if the
+  dnl corresponding gnulib module is not in use, and which is not
+  dnl guaranteed by C89.
+  gl_WARN_ON_USE_PREPARE([[#include <stdlib.h>
+#if HAVE_SYS_LOADAVG_H
+/* OpenIndiana has a bug: <sys/time.h> must be included before
+   <sys/loadavg.h>.  */
+# include <sys/time.h>
+# include <sys/loadavg.h>
+#endif
+#if HAVE_RANDOM_H
+# include <random.h>
+#endif
+    ]], [getloadavg])
+])
+
+# gl_STDLIB_MODULE_INDICATOR([modulename])
+# sets the shell variable that indicates the presence of the given module
+# to a C preprocessor expression that will evaluate to 1.
+# This macro invocation must not occur in macros that are AC_REQUIREd.
+AC_DEFUN([gl_STDLIB_MODULE_INDICATOR],
+[
+  dnl Ensure to expand the default settings once only.
+  gl_STDLIB_H_REQUIRE_DEFAULTS
+  gl_MODULE_INDICATOR_SET_VARIABLE([$1])
+  dnl Define it also as a C macro, for the benefit of the unit tests.
+  gl_MODULE_INDICATOR_FOR_TESTS([$1])
+])
+
+# Initializes the default values for AC_SUBSTed shell variables.
+# This macro must not be AC_REQUIREd.  It must only be invoked, and only
+# outside of macros or in macros that are not AC_REQUIREd.
+AC_DEFUN([gl_STDLIB_H_REQUIRE_DEFAULTS],
+[
+  m4_defun(GL_MODULE_INDICATOR_PREFIX[_STDLIB_H_MODULE_INDICATOR_DEFAULTS], [
+    gl_MODULE_INDICATOR_INIT_VARIABLE([GNULIB_GETLOADAVG])
+  ])
+  m4_require(GL_MODULE_INDICATOR_PREFIX[_STDLIB_H_MODULE_INDICATOR_DEFAULTS])
+  AC_REQUIRE([gl_STDLIB_H_DEFAULTS])
+])
+
+AC_DEFUN([gl_STDLIB_H_DEFAULTS],
+[
+  dnl Assume proper GNU behavior unless another module says otherwise.
+  HAVE_DECL_GETLOADAVG=1;    AC_SUBST([HAVE_DECL_GETLOADAVG])
+])

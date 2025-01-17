@@ -1,0 +1,6 @@
+# Upstream signs its tarballs and uscan checks them.
+# We do not sign the tarballs after repacking, so the tarballs going into the
+# are not signed.
+orig-tarball-missing-upstream-signature *
+# The repack is represented in the name of the source package itself.
+repackaged-source-not-advertised

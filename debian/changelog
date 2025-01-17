@@ -1,3 +1,40 @@
+make-dfsg (4.4.1-1) unstable; urgency=medium
+
+  [ Victor Westerhuis ]
+  * Switch to dpkg-source 3.0 (quilt) format.
+  * Update and minimize upstream signing key.
+  * Automate removal of documentation with d/copyright.
+  * New upstream version 4.4. Closes: #1029106.
+    - Adds a --shuffle option to change argument order. Closes: #314306.
+    - Exports variables to commands started by $(shell ...).
+      Closes: #327154, #895835.
+    - No longer tries to run directories as commands. Closes: #969813.
+    - Reduces the stack usage of filter and filter-out. Closes: #992444.
+    - Uses named pipes for the job server, making it available in
+      sub-invocations of Make through $(shell ...). Closes: #1010504.
+    - Checks for malformed environment variables. Closes: #1034700.
+  * Update and split patches.
+  * Fix Lintian and cme warnings.
+  * Update copyright years and add myself to d/copyright.
+  * Simplify Debian build system and drop unnecessary Build-Depends.
+    Closes: #1060240.
+  * Add autopkgtest.
+  * Add Build-Profiles <!noguile> to make-guile in d/control. Closes: #993944.
+  * Fix large command line on POSIX systems. Closes: #973884.
+
+  [ наб ]
+  * Fix spacing errors in d/make.1. Closes: #1010190.
+
+  [ Stephen Kitt ]
+  * New upstream release, 4.4.1.
+  * Adopt the package; thanks Manoj for your maintenance work over the
+    years! Closes: #1083140.
+  * Build-depend on pkgconf instead of pkg-config.
+  * Standards-Version 4.7.0, no further change required.
+  * Move the repository to the common Debian namespace on Salsa.
+
+ -- Stephen Kitt <skitt@debian.org>  Wed, 18 Dec 2024 19:03:44 +0100
+
 make-dfsg (4.3-4.1) unstable; urgency=medium
 
   * Non-maintainer upload.

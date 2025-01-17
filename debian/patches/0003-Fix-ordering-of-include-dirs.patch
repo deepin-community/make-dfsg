@@ -1,0 +1,33 @@
+From: Manoj Srivastava <srivasta@debian.org>
+Date: Fri, 5 Jun 2020 18:52:03 -0700
+Subject: Fix ordering of include dirs
+
+There has been a long standing bug where INCLUDE_DIRS /usr/include is
+included twice. The more important problem is it is before the
+/usr/local/include.
+
+Last-Update: 2023-02-12
+---
+ src/read.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+--- a/src/read.c
++++ b/src/read.c
+@@ -107,14 +107,14 @@
+    This is defined as a placeholder.  */
+ # define INCLUDEDIR "."
+ #endif
+-#if defined(INCLUDEDIR)
+-    INCLUDEDIR,
+-#endif
+ #ifndef _AMIGA
+     "/usr/gnu/include",
+     "/usr/local/include",
+     "/usr/include",
+ #endif
++#if defined(INCLUDEDIR)
++    INCLUDEDIR,
++#endif
+     0
+   };
+ 

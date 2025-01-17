@@ -1,16 +1,16 @@
-# Basic GNU -*-Makefile-*- to build GNU make
+# Basic GNU -*-Makefile-*- to build GNU Make
 #
 # NOTE:
 # If you have no 'make' program at all to process this makefile:
-#   * On Windows, run ".\buildw32.bat" to bootstrap one.
+#   * On Windows, run ".\build_w32.bat" to bootstrap one.
 #   * On MS-DOS, run ".\builddos.bat" to bootstrap one.
 #
-# Once you have a GNU make program created, you can use it with this makefile
+# Once you have a GNU Make program created, you can use it with this makefile
 # to keep it up to date if you make changes, as:
 #
 #   make.exe -f Basic.mk
 #
-# Copyright (C) 2017-2020 Free Software Foundation, Inc.
+# Copyright (C) 2017-2023 Free Software Foundation, Inc.
 # This file is part of GNU Make.
 #
 # GNU Make is free software; you can redistribute it and/or modify it under
@@ -24,14 +24,14 @@
 # details.
 #
 # You should have received a copy of the GNU General Public License along with
-# this program.  If not, see <http://www.gnu.org/licenses/>.
+# this program.  If not, see <https://www.gnu.org/licenses/>.
 
 all:
 
 src = src/
 lib = lib/
 
-make_SOURCES = $(src)ar.c $(src)arscan.c $(src)commands.c $(src)default.c $(src)dir.c $(src)expand.c $(src)file.c $(src)function.c $(src)getopt.c $(src)getopt1.c $(src)guile.c $(src)hash.c $(src)implicit.c $(src)job.c $(src)load.c $(src)loadapi.c $(src)main.c $(src)misc.c $(src)output.c $(src)read.c $(src)remake.c $(src)rule.c $(src)signame.c $(src)strcache.c $(src)variable.c $(src)version.c $(src)vpath.c
+make_SOURCES = $(src)ar.c $(src)arscan.c $(src)commands.c $(src)default.c $(src)dir.c $(src)expand.c $(src)file.c $(src)function.c $(src)getopt.c $(src)getopt1.c $(src)guile.c $(src)hash.c $(src)implicit.c $(src)job.c $(src)load.c $(src)loadapi.c $(src)main.c $(src)misc.c $(src)output.c $(src)read.c $(src)remake.c $(src)rule.c $(src)shuffle.c $(src)signame.c $(src)strcache.c $(src)variable.c $(src)version.c $(src)vpath.c
 glob_SOURCES = $(lib)fnmatch.c $(lib)glob.c
 loadavg_SOURCES = $(lib)getloadavg.c
 alloca_SOURCES = $(lib)alloca.c
@@ -39,7 +39,6 @@ w32_SOURCES = $(src)w32/pathstuff.c $(src)w32/w32os.c $(src)w32/compat/dirent.c 
 vms_SOURCES = $(src)vms_exit.c $(src)vms_export_symbol.c $(src)vms_progname.c $(src)vmsfunctions.c $(src)vmsify.c
 amiga_SOURCES = $(src)amiga.c
 
-posix_SOURCES = $(src)posixos.c
 remote_SOURCES = $(src)remote-stub.c
 
 OUTDIR =
@@ -88,8 +87,9 @@ COMPILE.cmd = $(CC) $(extra_CFLAGS) $(CFLAGS) $(extra_CPPFLAGS) $(CPPFLAGS) $(TA
 # $(call LINK.cmd,<objectlist>)
 LINK.cmd = $(LD) $(extra_LDFLAGS) $(LDFLAGS) $(TARGET_ARCH) $1 $(LDLIBS) $(LINK_OUTPUT)
 
-# $(CHECK.cmd)
+# $(CHECK.cmd) $(CHECK.args)
 CHECK.cmd = cd $(SRCDIR)/tests && ./run_make_tests -make $(shell cd $(<D) && pwd)/$(<F)
+CHECK.args ?=
 
 # $(call MKDIR.cmd,<dirlist>)
 MKDIR.cmd = mkdir -p $1
@@ -103,9 +103,7 @@ CP.cmd = cp $1 $2
 CLEANSPACE = $(call RM.cmd,$(OBJECTS) $(PROG) $(BUILT_SOURCES))
 
 # Load overrides for the above variables.
-include $(firstword $(wildcard $(SRCDIR)/mk/$(lastword $(subst -, ,$(MAKE_HOST)).mk) $(OUTDIR)mk/Posix.mk $(SRCDIR)/mk/Posix.mk))
-
-VERSION = 4.3
+include $(firstword $(wildcard $(SRCDIR)/mk/$(lastword $(subst -, ,$(MAKE_HOST)).mk)))
 
 VPATH = $(SRCDIR)
 
@@ -123,7 +121,7 @@ $(OBJDIRS):
 	$(call MKDIR.cmd,$@)
 
 check:
-	$(CHECK.cmd)
+	$(CHECK.cmd) $(CHECK.args)
 
 clean:
 	$(CLEANSPACE)
@@ -137,95 +135,263 @@ $(filter %.h,$(BUILT_SOURCES)): %.h : %.in.h
 # --------------- DEPENDENCIES
 #
 
+$(OBJECTS): $(SRCDIR)/src/mkconfig.h
+
 # src/.deps/amiga.Po
 # dummy
 
 # src/.deps/ar.Po
-# dummy
+$(OUTDIR)src/ar.$(OBJEXT): $(SRCDIR)/src/ar.c $(SRCDIR)/src/makeint.h $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h \
+  \
+ $(SRCDIR)/src/gnumake.h \
+ $(SRCDIR)/src/gettext.h \
+ $(SRCDIR)/src/filedef.h $(SRCDIR)/src/hash.h \
+ $(SRCDIR)/src/dep.h $(SRCDIR)/lib/intprops.h $(SRCDIR)/lib/intprops-internal.h
 
 # src/.deps/arscan.Po
-# dummy
+$(OUTDIR)src/arscan.$(OBJEXT): $(SRCDIR)/src/arscan.c $(SRCDIR)/src/makeint.h \
+ $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h  \
+ $(SRCDIR)/src/gnumake.h \
+ $(SRCDIR)/src/gettext.h \
+ $(SRCDIR)/lib/intprops.h $(SRCDIR)/lib/intprops-internal.h $(SRCDIR)/src/output.h
 
 # src/.deps/commands.Po
-# dummy
+$(OUTDIR)src/commands.$(OBJEXT): $(SRCDIR)/src/commands.c $(SRCDIR)/src/makeint.h \
+ $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h  \
+ $(SRCDIR)/src/gnumake.h \
+ $(SRCDIR)/src/gettext.h \
+ $(SRCDIR)/src/filedef.h $(SRCDIR)/src/hash.h \
+ $(SRCDIR)/src/os.h $(SRCDIR)/src/dep.h $(SRCDIR)/src/variable.h $(SRCDIR)/src/job.h $(SRCDIR)/src/output.h $(SRCDIR)/src/commands.h
 
 # src/.deps/default.Po
-# dummy
+$(OUTDIR)src/default.$(OBJEXT): $(SRCDIR)/src/default.c $(SRCDIR)/src/makeint.h \
+ $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h  \
+ $(SRCDIR)/src/gnumake.h \
+ $(SRCDIR)/src/gettext.h \
+ $(SRCDIR)/src/filedef.h $(SRCDIR)/src/hash.h $(SRCDIR)/src/variable.h $(SRCDIR)/src/rule.h $(SRCDIR)/src/dep.h $(SRCDIR)/src/job.h \
+ $(SRCDIR)/src/output.h $(SRCDIR)/src/commands.h
 
 # src/.deps/dir.Po
-# dummy
+$(OUTDIR)src/dir.$(OBJEXT): $(SRCDIR)/src/dir.c $(SRCDIR)/src/makeint.h \
+ $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h  \
+ $(SRCDIR)/src/gnumake.h \
+ $(SRCDIR)/src/gettext.h \
+ $(SRCDIR)/src/hash.h $(SRCDIR)/src/filedef.h \
+ $(SRCDIR)/src/dep.h $(SRCDIR)/src/debug.h \
 
 # src/.deps/expand.Po
-# dummy
+$(OUTDIR)src/expand.$(OBJEXT): $(SRCDIR)/src/expand.c $(SRCDIR)/src/makeint.h \
+ $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h  \
+ $(SRCDIR)/src/gnumake.h \
+ $(SRCDIR)/src/gettext.h \
+ $(SRCDIR)/src/commands.h $(SRCDIR)/src/debug.h $(SRCDIR)/src/filedef.h $(SRCDIR)/src/hash.h $(SRCDIR)/src/job.h \
+ $(SRCDIR)/src/output.h $(SRCDIR)/src/variable.h $(SRCDIR)/src/rule.h
 
 # src/.deps/file.Po
-# dummy
+$(OUTDIR)src/file.$(OBJEXT): $(SRCDIR)/src/file.c $(SRCDIR)/src/makeint.h \
+ $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h  \
+ $(SRCDIR)/src/gnumake.h \
+ $(SRCDIR)/src/gettext.h \
+ $(SRCDIR)/src/filedef.h $(SRCDIR)/src/hash.h $(SRCDIR)/src/dep.h $(SRCDIR)/src/job.h $(SRCDIR)/src/output.h $(SRCDIR)/src/commands.h \
+ $(SRCDIR)/src/variable.h $(SRCDIR)/src/debug.h $(SRCDIR)/src/shuffle.h
 
 # src/.deps/function.Po
-# dummy
+$(OUTDIR)src/function.$(OBJEXT): $(SRCDIR)/src/function.c $(SRCDIR)/src/makeint.h \
+ $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h  \
+ $(SRCDIR)/src/gnumake.h \
+ $(SRCDIR)/src/gettext.h \
+ $(SRCDIR)/src/filedef.h $(SRCDIR)/src/hash.h \
+ $(SRCDIR)/src/variable.h $(SRCDIR)/src/dep.h $(SRCDIR)/src/job.h $(SRCDIR)/src/output.h $(SRCDIR)/src/os.h $(SRCDIR)/src/commands.h \
+ $(SRCDIR)/src/debug.h
 
 # src/.deps/getopt.Po
-# dummy
+$(OUTDIR)src/getopt.$(OBJEXT): $(SRCDIR)/src/getopt.c $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h \
+  \
 
 # src/.deps/getopt1.Po
-# dummy
+$(OUTDIR)src/getopt1.$(OBJEXT): $(SRCDIR)/src/getopt1.c $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h \
+  \
+ $(SRCDIR)/src/getopt.h \
 
 # src/.deps/guile.Po
-# dummy
+$(OUTDIR)src/guile.$(OBJEXT): $(SRCDIR)/src/guile.c $(SRCDIR)/src/makeint.h \
+ $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h  \
+ $(SRCDIR)/src/gnumake.h \
+ $(SRCDIR)/src/gettext.h \
+ $(SRCDIR)/src/debug.h $(SRCDIR)/src/filedef.h \
+ $(SRCDIR)/src/hash.h $(SRCDIR)/src/dep.h $(SRCDIR)/src/variable.h \
+ $(SRCDIR)/src/gmk-default.h
 
 # src/.deps/hash.Po
-# dummy
+$(OUTDIR)src/hash.$(OBJEXT): $(SRCDIR)/src/hash.c $(SRCDIR)/src/makeint.h \
+ $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h  \
+ $(SRCDIR)/src/gnumake.h \
+ $(SRCDIR)/src/gettext.h \
+ $(SRCDIR)/src/hash.h \
 
 # src/.deps/implicit.Po
-# dummy
+$(OUTDIR)src/implicit.$(OBJEXT): $(SRCDIR)/src/implicit.c $(SRCDIR)/src/makeint.h \
+ $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h  \
+ $(SRCDIR)/src/gnumake.h \
+ $(SRCDIR)/src/gettext.h \
+ $(SRCDIR)/src/filedef.h $(SRCDIR)/src/hash.h \
+ $(SRCDIR)/src/rule.h $(SRCDIR)/src/dep.h $(SRCDIR)/src/debug.h $(SRCDIR)/src/variable.h $(SRCDIR)/src/job.h $(SRCDIR)/src/output.h \
+ $(SRCDIR)/src/commands.h $(SRCDIR)/src/shuffle.h
 
 # src/.deps/job.Po
-# dummy
+$(OUTDIR)src/job.$(OBJEXT): $(SRCDIR)/src/job.c $(SRCDIR)/src/makeint.h \
+ $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h  \
+ $(SRCDIR)/src/gnumake.h \
+ $(SRCDIR)/src/gettext.h \
+ $(SRCDIR)/src/job.h $(SRCDIR)/src/output.h $(SRCDIR)/src/debug.h $(SRCDIR)/src/filedef.h $(SRCDIR)/src/hash.h \
+ $(SRCDIR)/src/commands.h $(SRCDIR)/src/variable.h $(SRCDIR)/src/os.h $(SRCDIR)/src/dep.h $(SRCDIR)/src/shuffle.h \
+ $(SRCDIR)/lib/findprog.h
 
 # src/.deps/load.Po
-# dummy
+$(OUTDIR)src/load.$(OBJEXT): $(SRCDIR)/src/load.c $(SRCDIR)/src/makeint.h \
+ $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h  \
+ $(SRCDIR)/src/gnumake.h \
+ $(SRCDIR)/src/gettext.h \
+ $(SRCDIR)/src/debug.h \
+ $(SRCDIR)/src/filedef.h $(SRCDIR)/src/hash.h $(SRCDIR)/src/variable.h
 
 # src/.deps/loadapi.Po
-# dummy
+$(OUTDIR)src/loadapi.$(OBJEXT): $(SRCDIR)/src/loadapi.c $(SRCDIR)/src/makeint.h \
+ $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h  \
+ $(SRCDIR)/src/gnumake.h \
+ $(SRCDIR)/src/gettext.h \
+ $(SRCDIR)/src/filedef.h $(SRCDIR)/src/hash.h \
+ $(SRCDIR)/src/variable.h $(SRCDIR)/src/dep.h
 
 # src/.deps/main.Po
-# dummy
+$(OUTDIR)src/main.$(OBJEXT): $(SRCDIR)/src/main.c $(SRCDIR)/src/makeint.h \
+ $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h  \
+ $(SRCDIR)/src/gnumake.h \
+ $(SRCDIR)/src/gettext.h \
+ $(SRCDIR)/src/os.h $(SRCDIR)/src/filedef.h \
+ $(SRCDIR)/src/hash.h $(SRCDIR)/src/dep.h $(SRCDIR)/src/variable.h $(SRCDIR)/src/job.h $(SRCDIR)/src/output.h \
+ $(SRCDIR)/src/commands.h $(SRCDIR)/src/rule.h $(SRCDIR)/src/debug.h $(SRCDIR)/src/getopt.h $(SRCDIR)/src/shuffle.h \
 
 # src/.deps/misc.Po
-# dummy
+$(OUTDIR)src/misc.$(OBJEXT): $(SRCDIR)/src/misc.c $(SRCDIR)/src/makeint.h \
+ $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h  \
+ $(SRCDIR)/src/gnumake.h \
+ $(SRCDIR)/src/gettext.h \
+ $(SRCDIR)/src/filedef.h $(SRCDIR)/src/hash.h \
+ $(SRCDIR)/src/dep.h $(SRCDIR)/src/os.h $(SRCDIR)/src/debug.h \
 
 # src/.deps/output.Po
-# dummy
+$(OUTDIR)src/output.$(OBJEXT): $(SRCDIR)/src/output.c $(SRCDIR)/src/makeint.h \
+ $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h  \
+ $(SRCDIR)/src/gnumake.h \
+ $(SRCDIR)/src/gettext.h \
+ $(SRCDIR)/src/os.h $(SRCDIR)/src/output.h \
 
 # src/.deps/posixos.Po
-# dummy
+$(OUTDIR)src/posixos.$(OBJEXT): $(SRCDIR)/src/posixos.c $(SRCDIR)/src/makeint.h \
+ $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h  \
+ $(SRCDIR)/src/gnumake.h \
+ $(SRCDIR)/src/gettext.h \
+ $(SRCDIR)/src/debug.h $(SRCDIR)/src/job.h $(SRCDIR)/src/output.h $(SRCDIR)/src/os.h
 
 # src/.deps/read.Po
-# dummy
+$(OUTDIR)src/read.$(OBJEXT): $(SRCDIR)/src/read.c $(SRCDIR)/src/makeint.h \
+ $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h  \
+ $(SRCDIR)/src/gnumake.h \
+ $(SRCDIR)/src/gettext.h \
+ $(SRCDIR)/src/filedef.h $(SRCDIR)/src/hash.h $(SRCDIR)/src/dep.h $(SRCDIR)/src/job.h $(SRCDIR)/src/output.h $(SRCDIR)/src/os.h \
+ $(SRCDIR)/src/commands.h $(SRCDIR)/src/variable.h $(SRCDIR)/src/rule.h $(SRCDIR)/src/debug.h
 
 # src/.deps/remake.Po
-# dummy
+$(OUTDIR)src/remake.$(OBJEXT): $(SRCDIR)/src/remake.c $(SRCDIR)/src/makeint.h \
+ $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h  \
+ $(SRCDIR)/src/gnumake.h \
+ $(SRCDIR)/src/gettext.h \
+ $(SRCDIR)/src/filedef.h $(SRCDIR)/src/hash.h \
+ $(SRCDIR)/src/job.h $(SRCDIR)/src/output.h $(SRCDIR)/src/commands.h $(SRCDIR)/src/dep.h $(SRCDIR)/src/variable.h \
+ $(SRCDIR)/src/debug.h \
 
 # src/.deps/remote-cstms.Po
 # dummy
 
 # src/.deps/remote-stub.Po
-# dummy
+$(OUTDIR)src/remote-stub.$(OBJEXT): $(SRCDIR)/src/remote-stub.c \
+ $(SRCDIR)/src/makeint.h $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h \
+  \
+ $(SRCDIR)/src/gnumake.h \
+ $(SRCDIR)/src/gettext.h \
+ $(SRCDIR)/src/filedef.h $(SRCDIR)/src/hash.h \
+ $(SRCDIR)/src/job.h $(SRCDIR)/src/output.h $(SRCDIR)/src/commands.h
 
 # src/.deps/rule.Po
-# dummy
+$(OUTDIR)src/rule.$(OBJEXT): $(SRCDIR)/src/rule.c $(SRCDIR)/src/makeint.h \
+ $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h  \
+ $(SRCDIR)/src/gnumake.h \
+ $(SRCDIR)/src/gettext.h \
+ $(SRCDIR)/src/filedef.h $(SRCDIR)/src/hash.h $(SRCDIR)/src/dep.h $(SRCDIR)/src/job.h $(SRCDIR)/src/output.h $(SRCDIR)/src/commands.h \
+ $(SRCDIR)/src/variable.h $(SRCDIR)/src/rule.h
+
+# src/.deps/shuffle.Po
+$(OUTDIR)src/shuffle.$(OBJEXT): $(SRCDIR)/src/shuffle.c $(SRCDIR)/src/makeint.h \
+ $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h  \
+ $(SRCDIR)/src/gnumake.h \
+ $(SRCDIR)/src/gettext.h \
+ $(SRCDIR)/src/shuffle.h $(SRCDIR)/src/filedef.h \
+ $(SRCDIR)/src/hash.h $(SRCDIR)/src/dep.h
 
 # src/.deps/signame.Po
-# dummy
+$(OUTDIR)src/signame.$(OBJEXT): $(SRCDIR)/src/signame.c $(SRCDIR)/src/makeint.h \
+ $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h  \
+ $(SRCDIR)/src/gnumake.h \
+ $(SRCDIR)/src/gettext.h \
 
 # src/.deps/strcache.Po
-# dummy
+$(OUTDIR)src/strcache.$(OBJEXT): $(SRCDIR)/src/strcache.c $(SRCDIR)/src/makeint.h \
+ $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h  \
+ $(SRCDIR)/src/gnumake.h \
+ $(SRCDIR)/src/gettext.h \
+ $(SRCDIR)/src/hash.h
 
 # src/.deps/variable.Po
-# dummy
+$(OUTDIR)src/variable.$(OBJEXT): $(SRCDIR)/src/variable.c $(SRCDIR)/src/makeint.h \
+ $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h  \
+ $(SRCDIR)/src/gnumake.h \
+ $(SRCDIR)/src/gettext.h \
+ $(SRCDIR)/src/filedef.h $(SRCDIR)/src/hash.h $(SRCDIR)/src/debug.h $(SRCDIR)/src/dep.h $(SRCDIR)/src/job.h $(SRCDIR)/src/output.h \
+ $(SRCDIR)/src/commands.h $(SRCDIR)/src/variable.h $(SRCDIR)/src/os.h $(SRCDIR)/src/rule.h
 
 # src/.deps/version.Po
-# dummy
+$(OUTDIR)src/version.$(OBJEXT): $(SRCDIR)/src/version.c $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h \
+ 
 
 # src/.deps/vms_exit.Po
 # dummy
@@ -243,4 +409,10 @@ $(filter %.h,$(BUILT_SOURCES)): %.h : %.in.h
 # dummy
 
 # src/.deps/vpath.Po
-# dummy
+$(OUTDIR)src/vpath.$(OBJEXT): $(SRCDIR)/src/vpath.c $(SRCDIR)/src/makeint.h \
+ $(OUTDIR)src/config.h \
+ $(SRCDIR)/src/../src/mkcustom.h  \
+ $(SRCDIR)/src/gnumake.h \
+ $(SRCDIR)/src/gettext.h \
+ $(SRCDIR)/src/filedef.h $(SRCDIR)/src/hash.h \
+ $(SRCDIR)/src/variable.h

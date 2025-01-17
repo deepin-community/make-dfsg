@@ -1,0 +1,5 @@
+0001-Remove-documentation-from-build-system.patch
+0002-Fix-issues-with-ar-operating-in-deterministic-mode.patch
+0003-Fix-ordering-of-include-dirs.patch
+0004-Fix-directory-search-for-link-libraries.patch
+0005-Fix-large-command-line-on-POSIX-systems.patch

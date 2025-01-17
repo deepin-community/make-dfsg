@@ -11,7 +11,7 @@
 #                         [-make <make prog>]
 #                        (and others)
 
-# Copyright (C) 1992-2020 Free Software Foundation, Inc.
+# Copyright (C) 1992-2023 Free Software Foundation, Inc.
 # This file is part of GNU Make.
 #
 # GNU Make is free software; you can redistribute it and/or modify it under
@@ -25,7 +25,7 @@
 # details.
 #
 # You should have received a copy of the GNU General Public License along with
-# this program.  If not, see <http://www.gnu.org/licenses/>.
+# this program.  If not, see <https://www.gnu.org/licenses/>.
 
 # Add the working directory to @INC and load the test driver
 use FindBin;
@@ -45,6 +45,10 @@ $cwdpath = cwd();
 $has_POSIX = eval { require "POSIX.pm" };
 
 %FEATURES = ();
+%DEFVARS = (
+    AR => undef,
+    CC => undef
+);
 
 $valgrind = 0;              # invoke make with valgrind
 $valgrind_args = '';
@@ -52,7 +56,7 @@ $memcheck_args = '--num-callers=15 --tool=memcheck --leak-check=full --suppressi
 $massif_args = '--num-callers=15 --tool=massif --alloc-fn=xmalloc --alloc-fn=xcalloc --alloc-fn=xrealloc --alloc-fn=xstrdup --alloc-fn=xstrndup';
 $pure_log = undef;
 
-# The location of the GNU make source directory
+# The location of the GNU Make source directory
 $srcdir = undef;
 $fqsrcdir = undef;
 $srcvol = undef;
@@ -100,65 +104,12 @@ if ($^O eq 'VMS')
 # We want them from the C locale regardless of our current locale.
 
 $ERR_no_such_file = undef;
+$ERR_no_such_file_code = "2";
 $ERR_read_only_file = undef;
 $ERR_unreadable_file = undef;
 $ERR_nonexe_file = undef;
 $ERR_exe_dir = undef;
-
-{
-  use locale;
-
-  my $loc = undef;
-  if ($has_POSIX) {
-      POSIX->import(qw(locale_h));
-      # Windows has POSIX locale, but only LC_ALL not LC_MESSAGES
-      $loc = POSIX::setlocale(&POSIX::LC_ALL);
-      POSIX::setlocale(&POSIX::LC_ALL, 'C');
-  }
-
-  if (open(my $F, '<', 'file.none')) {
-      print "Opened non-existent file! Skipping related tests.\n";
-  } else {
-      $ERR_no_such_file = "$!";
-  }
-
-  unlink('file.out');
-  touch('file.out');
-
-  chmod(0444, 'file.out');
-  if (open(my $F, '>', 'file.out')) {
-      print "Opened read-only file! Skipping related tests.\n";
-      close($F);
-  } else {
-      $ERR_read_only_file = "$!";
-  }
-
-  $_ = `./file.out 2>/dev/null`;
-  if ($? == 0) {
-      print "Executed non-executable file!  Skipping related tests.\n";
-  } else {
-      $ERR_nonexe_file = "$!";
-  }
-
-  $_ = `./. 2>/dev/null`;
-  if ($? == 0) {
-      print "Executed directory!  Skipping related tests.\n";
-  } else {
-      $ERR_exe_dir = "$!";
-  }
-
-  chmod(0000, 'file.out');
-  if (open(my $F, '<', 'file.out')) {
-      print "Opened unreadable file!  Skipping related tests.\n";
-      close($F);
-  } else {
-      $ERR_unreadable_file = "$!";
-  }
-
-  unlink('file.out') or die "Failed to delete file.out: $!\n";
-
-  $loc and POSIX::setlocale(&POSIX::LC_ALL, $loc);
-}
+$ERR_command_not_found = undef;
 
 #$SIG{INT} = sub { print STDERR "Caught a signal!\n"; die @_; };
 
@@ -168,9 +119,9 @@ sub valid_option
 
    if ($option =~ /^-make([-_]?path)?$/i) {
        $make_path = shift @argv;
-       if (!-f $make_path) {
+       if (! -f $make_path) {
            print "$option $make_path: Not found.\n";
-           exit 0;
+           exit 1;
        }
        return 1;
    }
@@ -178,8 +129,8 @@ sub valid_option
    if ($option =~ /^-srcdir$/i) {
        $srcdir = shift @argv;
        if (! -f File::Spec->catfile($srcdir, 'src', 'gnumake.h')) {
-           print "$option $srcdir: Not a valid GNU make source directory.\n";
-           exit 0;
+           print "$option $srcdir: Not a valid GNU Make source directory.\n";
+           exit 1;
        }
        return 1;
    }
@@ -234,7 +185,7 @@ sub subst_make_string
     s/#MAKE#/$make_name/g;
     s/#PERL#/$perl_name/g;
     s/#PWD#/$cwdpath/g;
-    # If we're using a shell
+    s/#WORK#/$workdir/g;
     s/#HELPER#/$perl_name $helptool/g;
     return $_;
 }
@@ -252,7 +203,7 @@ sub run_make_test
     defined $old_makefile
       or die "run_make_test(undef) invoked before run_make_test('...')\n";
     $makefile = $old_makefile;
-  } else {
+  } elsif ($makestring) {
     if (! defined($makefile)) {
       $makefile = &get_tmpfile();
     }
@@ -306,7 +257,7 @@ sub create_command {
 # Using a ref should be preferred as it's more portable but all the older
 # invocations use strings.
 sub run_make_with_options {
-  my ($filename,$options,$logname,$expected_code,$timeout,@call) = @_;
+  my ($filename, $options, $logname, $expected_code, $timeout, @call) = @_;
   @call = caller unless @call;
   my $code;
   my $command = create_command($options);
@@ -360,13 +311,8 @@ sub run_make_with_options {
     $command = add_options($command, $options);
   }
 
-  my $cmdstr = ref($command) ? "'".join("' '", @$command)."'" : $command;
-
-  if (@call) {
-    $command_string = "#$call[1]:$call[2]\n$cmdstr\n";
-  } else {
-    $command_string = $cmdstr;
-  }
+  my $cmdstr = cmd2str($command);
+  $command_string = "# $call[1]:$call[2]:\n$cmdstr\n";
 
   if ($valgrind) {
     print VALGRIND "\n\nExecuting: $cmdstr\n";
@@ -405,9 +351,9 @@ sub run_make_with_options {
   }
 
   if ($code != $expected_code) {
-    print "Error running @make_command (expected $expected_code; got $code): $cmdstr\n";
+    print "Error running @make_command (expected $expected_code; got $code)\n$call[1]:$call[2]: $cmdstr\n";
     $test_passed = 0;
-    &create_file (&get_runfile, $command_string);
+    &create_file(get_runfile(), $command_string);
     # If it's a SIGINT, stop here
     if ($code & 127) {
       print STDERR "\nCaught signal ".($code & 127)."!\n";
@@ -449,7 +395,7 @@ sub print_help
 sub set_defaults
 {
   # $profile = 1;
-  $testee = "GNU make";
+  $testee = "GNU Make";
   $make_path = "make";
   $tmpfilesuffix = "mk";
   if ($port_type eq 'UNIX') {
@@ -459,6 +405,84 @@ sub set_defaults
   } else {
     $scriptsuffix = '.bat';
   }
+
+  $ENV{LC_ALL} = $makeENV{LC_ALL};
+  $ENV{LANG} = $makeENV{LANG};
+  $ENV{LANGUAGE} = $makeENV{LANGUAGE};
+
+  use locale;
+
+  my $loc = undef;
+  if ($has_POSIX) {
+      POSIX->import(qw(locale_h));
+      # Windows has POSIX locale, but only LC_ALL not LC_MESSAGES
+      $loc = POSIX::setlocale(&POSIX::LC_ALL);
+      POSIX::setlocale(&POSIX::LC_ALL, 'C');
+  }
+
+  if (open(my $F, '<', 'file.none')) {
+      print "Opened non-existent file! Skipping related tests.\n";
+  } else {
+      $ERR_no_such_file = "$!";
+      if ($osname eq 'os390') {
+          $ERR_no_such_file_code = "129";
+      }
+  }
+
+  unlink('file.out');
+  touch('file.out');
+
+  chmod(0444, 'file.out');
+  if (open(my $F, '>', 'file.out')) {
+      print "Opened read-only file! Skipping related tests.\n";
+      close($F);
+  } else {
+      $ERR_read_only_file = "$!";
+  }
+
+  $_ = `./file.out 2>&1`;
+  if ($? == 0) {
+      print "Executed non-executable file!  Skipping related tests.\n";
+  } else {
+      $ERR_nonexe_file = "$!";
+  }
+
+  if ($^O =~ /cygwin/i) {
+      # For some reason the execute here gives a different answer than make's
+      print "Skipping directory execution on $^O\n";
+  } else {
+      $_ = `./. 2>&1`;
+      if ($? == 0) {
+          print "Executed directory!  Skipping related tests.\n";
+      } else {
+          $ERR_exe_dir = "$!";
+      }
+  }
+
+  chmod(0000, 'file.out');
+  if (open(my $F, '<', 'file.out')) {
+      print "Opened unreadable file!  Skipping related tests.\n";
+      close($F);
+  } else {
+      $ERR_unreadable_file = "$!";
+  }
+
+  unlink('file.out') or die "Failed to delete file.out: $!\n";
+
+  $_ = `/bin/sh -c 'bad-command 2>&1'`;
+  if ($? == 0) {
+      print "Invoked invalid file!  Skipping related tests.\n";
+  } else {
+      s/\r?\n//g;
+      s/bad-command/#CMDNAME#/g;
+      $ERR_command_not_found = $_;
+  }
+
+  $loc and POSIX::setlocale(&POSIX::LC_ALL, $loc);
+
+  $ENV{LC_ALL} = $origENV{LC_ALL};
+  $ENV{LANG} = $origENV{LANG};
+  $ENV{LANGUAGE} = $origENV{LANGUAGE};
 }
 
 # This is no longer used: we import config-flags.pm instead
@@ -561,7 +585,7 @@ sub set_more_defaults
     create_file('make.mk', 'all:;$(info $(MAKE))');
     my $mk = `$make_path -sf make.mk`;
     unlink('make.mk');
-    chop $mk;
+    $mk =~ s/\r?\n$//;
     $mk or die "FATAL ERROR: Cannot determine the value of \$(MAKE)\n";
     $make_path = $mk;
   }
@@ -571,7 +595,7 @@ sub set_more_defaults
   create_file('shell.mk', 'all:;$(info $(SHELL))');
   $sh_name = `$make_path -sf shell.mk`;
   unlink('shell.mk');
-  chop $sh_name;
+  $sh_name =~ s/\r?\n$//;
   if (! $sh_name) {
       print "Cannot determine shell\n";
       $is_posix_sh = 0;
@@ -581,7 +605,7 @@ sub set_more_defaults
   }
 
   $string = `$make_path -v`;
-  $string =~ /^(GNU Make [^,\n]*)/ or die "$make_path is not GNU make.  Version:\n$string";
+  $string =~ /^(GNU Make [^,\n]*)/ or die "$make_path is not GNU Make.  Version:\n$string";
   $testee_version = "$1\n";
 
   create_file('null.mk', '');
@@ -647,7 +671,20 @@ sub set_more_defaults
 
   create_file('features.mk', 'all:;$(info $(.FEATURES))');
   %FEATURES = map { $_ => 1 } split /\s+/, `$make_path -sf features.mk`;
+  print "$make_path FEATURES: @{[%FEATURES]}\n" if $verbose;
   unlink('features.mk');
+
+  # Find the default values for different built-in variables
+  my $s = "all:;\n";
+  foreach (keys %DEFVARS) {
+      $s .= "\$(info $_=\$($_))\n";
+  }
+  create_file('defvars.mk', $s);
+  foreach (split "\n", `$make_path -sf defvars.mk`) {
+      my @e = split /=/, $_, 2;
+      $DEFVARS{$e[0]} = $e[1];
+  }
+  unlink('defvars.mk');
 
   # Set up for valgrind, if requested.
 
