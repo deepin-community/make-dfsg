@@ -1,3 +1,12 @@
+make-dfsg (4.4.1-2) unstable; urgency=medium
+
+  * Pull in the 4.4.1 man page. Starting with the next release, the
+    package will ship the upstream man page directly instead of keeping
+    a separate copy. Closes: #1091889.
+  * Standards-Version 4.7.2, no change required.
+
+ -- Stephen Kitt <skitt@debian.org>  Sun, 06 Apr 2025 15:01:07 +0200
+
 make-dfsg (4.4.1-1) unstable; urgency=medium
 
   [ Victor Westerhuis ]
