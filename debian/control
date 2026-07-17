@@ -5,7 +5,7 @@ Priority: optional
 Build-Depends: debhelper-compat (= 13),
                guile-3.0-dev <!noguile>,
                pkgconf,
-Standards-Version: 4.7.0
+Standards-Version: 4.7.2
 Vcs-Browser: https://salsa.debian.org/debian/make
 Vcs-Git: https://salsa.debian.org/debian/make.git
 Homepage: https://www.gnu.org/software/make/
