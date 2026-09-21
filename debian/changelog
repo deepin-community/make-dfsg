@@ -1,3 +1,9 @@
+make-dfsg (4.4.1-2deepin1) unstable; urgency=medium
+
+  * Rebuild with LTO enabled (dpkg vendor feature optimize/lto).
+
+ -- tunaichao <tunaichao@uniontech.com>  Mon, 21 Sep 2026 15:51:25 +0800
+
 make-dfsg (4.4.1-2) unstable; urgency=medium
 
   * Pull in the 4.4.1 man page. Starting with the next release, the
